@@ -1,10 +1,9 @@
 
-set(tflite_dir "${CMAKE_CURRENT_SOURCE_DIR}/tflite-micro/tensorflow/lite")
+set(tflite_dir "${CMAKE_CURRENT_SOURCE_DIR}/tensorflow/lite")
 set(tfmicro_dir "${tflite_dir}/micro")
 set(tfmicro_kernels_dir "${tfmicro_dir}/kernels")
 
 set(srcs_micro
-          "${tfmicro_dir}/system_setup.cc"
           "${tfmicro_dir}/micro_graph.cc"
           "${tfmicro_dir}/flatbuffer_utils.cc"
           "${tfmicro_dir}/micro_interpreter.cc"
@@ -99,9 +98,9 @@ set(lib_srcs
 
 idf_component_register(
             SRCS "${lib_srcs}"
-            INCLUDE_DIRS "tflite-micro/" "tflite-micro/third_party/gemmlowp"
-                         "tflite-micro/third_party/flatbuffers/include"
-                         "tflite-micro/third_party/")
+            INCLUDE_DIRS "." "third_party/gemmlowp"
+                         "third_party/flatbuffers/include"
+                         "third_party/ruy")
 
 # Reduce the level of paranoia to be able to compile TF sources
 target_compile_options(${COMPONENT_LIB} PRIVATE
