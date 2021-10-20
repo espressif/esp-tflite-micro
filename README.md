@@ -15,22 +15,9 @@ The next steps assume that the
 * The `IDF_PATH` environment variable is set. * `idf.py` and Xtensa-esp32 tools
 (e.g., `xtensa-esp32-elf-gcc`) are in `$PATH`.
 
-## Build the example (Person Detection)
+## Build the example
 
-As the `person_detection` example requires an external component `esp32-camera`
-for functioning hence we will have to manually clone it in `components/`
-directory of the example with following commands.
-
- * `esp32-camera` should be
-downloaded in `components/` dir of example as explained in `Build the
-example`(below)
-
-```
- git clone https://github.com/espressif/esp32-camera.git components/esp32-camera
- cd components/esp32-camera/
- git checkout eacd640b8d379883bff1251a1005ebf3cf1ed95c
- cd ../../
-```
+Go to example directory (`examples/<example_name>`) and build the example.
 
 To build this, run:
 
@@ -57,6 +44,10 @@ The previous two commands can be combined:
 idf.py --port /dev/ttyUSB0 flash monitor
 ```
 
+## Sync to latest sources
+
+- `components/tflite-lib` directory contains the tflite micro sources.
+- If you need the latest head, just run `sync_from_tflite_micro.sh`.
 ## License
 
 These examples are covered under Apache2 License.
