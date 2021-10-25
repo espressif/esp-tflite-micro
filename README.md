@@ -1,6 +1,7 @@
-# TensorFlow Lite Micro Examples for ESP-IDF Platforms
+# TensorFlow Lite Micro Examples for Espressif Chipsets
 
-This repository has the  examples needed to use Tensorflow Lite Micro on ESP-IDF platforms.
+- This repository has the examples needed to use Tensorflow Lite Micro on Espressif Chipsets (e.g., ESP32) using ESP-IDF platform.
+- This repo at it's core uses sources from tflite-micro. This repo can be found [here.](https://github.com/tensorflow/tflite-micro)
 
 ## How to Install
 
@@ -48,7 +49,14 @@ idf.py --port /dev/ttyUSB0 flash monitor
 
 - `components/tflite-lib` directory contains the tflite micro sources.
 - If you need the latest head, just run `sync_from_tflite_micro.sh`.
+
+## Contributing
+- If you find an issue in these examples, or wish to submit an enhancement request, please use the Issues section on Github.
+- For ESP-IDF related issues please use [esp-idf](https://github.com/espressif/esp-idf) repo.
+- For TensorFlow related information use [tflite-micro](https://github.com/tensorflow/tflite-micro) repo.
+
 ## License
 
 These examples are covered under Apache2 License.
+
 TensorFlow library code and third_party code contains their own license specified under respective [repos](https://github.com/tensorflow/tflite-micro).
