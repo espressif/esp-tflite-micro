@@ -3,6 +3,12 @@
 - This repository has the examples needed to use Tensorflow Lite Micro on Espressif Chipsets (e.g., ESP32) using ESP-IDF platform.
 - This repo at it's core uses sources from tflite-micro. This repo can be found [here.](https://github.com/tensorflow/tflite-micro)
 
+## Build Status
+
+|   Build Type  |  Status    |
+| -----------   |  --------- |
+| Build (Linux) | ![CI](https://github.com/espressif/tflite-micro-esp-examples/actions/workflows/build.yml/badge.svg)
+
 ## How to Install
 
 ### Install the ESP IDF
