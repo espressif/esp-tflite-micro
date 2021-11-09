@@ -31,22 +31,15 @@ echo Cloning tflite-micro repo to "${TEMP_DIR}"
 git clone --depth 1 --single-branch "https://github.com/tensorflow/tflite-micro.git"
 cd tflite-micro
 
-TARGET=esp
-OPTIMIZED_KERNEL_DIR=esp_nn
-TARGET_ARCH=project_generation
-
 
 # Create the TFLM base tree
 python3 tensorflow/lite/micro/tools/project_generation/create_tflm_tree.py \
   -e hello_world -e magic_wand -e micro_speech -e person_detection \
-  --makefile_options="TARGET=${TARGET} TARGET_ARCH=${TARGET_ARCH}" \
   "${TEMP_DIR}/tflm-out"
 
 cd "${TFLITE_LIB_DIR}"
 rm -rf tensorflow
 mv "${TEMP_DIR}/tflm-out/tensorflow" tensorflow
-rm -rf tensorflow/lite/micro/cortex_m_generic
-rm -rf tensorflow/lite/micro/system_setup.cc
 
 # For this repo we are forking both the models and the examples.
 rm -rf tensorflow/lite/micro/models
