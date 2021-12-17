@@ -37,6 +37,9 @@ python3 tensorflow/lite/micro/tools/project_generation/create_tflm_tree.py \
   -e hello_world -e magic_wand -e micro_speech -e person_detection \
   "${TEMP_DIR}/tflm-out"
 
+# Backup `micro/kernels/esp_nn` directory to new tree
+/bin/cp -r "${TFLITE_LIB_DIR}"/tensorflow/lite/micro/kernels/esp_nn "${TEMP_DIR}"/tflm-out/tensorflow/lite/micro/kernels/
+
 cd "${TFLITE_LIB_DIR}"
 rm -rf tensorflow
 mv "${TEMP_DIR}/tflm-out/tensorflow" tensorflow
