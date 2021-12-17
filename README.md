@@ -1,13 +1,13 @@
-# TensorFlow Lite Micro Examples for Espressif Chipsets
+# TensorFlow Lite Micro for Espressif Chipsets
 
-- This repository has the examples needed to use Tensorflow Lite Micro on Espressif Chipsets (e.g., ESP32) using ESP-IDF platform.
-- This repo at it's core uses sources from tflite-micro. This repo can be found [here.](https://github.com/tensorflow/tflite-micro)
+- As per TFLite Micro guidelines for vendor support, this repository has the examples needed to use Tensorflow Lite Micro on Espressif Chipsets (e.g., ESP32) using ESP-IDF platform.
+- The base repo on which this is based can be found [here.](https://github.com/tensorflow/tflite-micro)
 
 ## Build Status
 
 |   Build Type  |  Status    |
 | -----------   |  --------- |
-| Build (Linux) | ![CI](https://github.com/espressif/tflite-micro-esp-examples/actions/workflows/build.yml/badge.svg)
+| Build (ESP32) | ![CI](https://github.com/espressif/tflite-micro-esp-examples/actions/workflows/build.yml/badge.svg)
 
 ## How to Install
 
@@ -17,14 +17,20 @@ Follow the instructions of the
 [ESP-IDF get started guide](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html)
 to setup the toolchain and the ESP-IDF itself.
 
-The next steps assume that the
-[IDF environment variables are set](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html#step-4-set-up-the-environment-variables) :
-* The `IDF_PATH` environment variable is set. * `idf.py` and Xtensa-esp32 tools
-(e.g., `xtensa-esp32-elf-gcc`) are in `$PATH`.
+The next steps assume that this installation is successful and the
+[IDF environment variables are set](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html#step-4-set-up-the-environment-variables). Specifically,
+* the `IDF_PATH` environment variable is set
+* the `idf.py` and Xtensa-esp32 tools (e.g., `xtensa-esp32-elf-gcc`) are in `$PATH`
 
 ## Build the example
 
 Go to example directory (`examples/<example_name>`) and build the example.
+
+Set the IDF_TARGET (For ESP32-S3 target, IDF version `release/v4.4` is needed)
+
+```
+idf.py set-target esp32s3
+```
 
 To build this, run:
 
@@ -51,10 +57,30 @@ The previous two commands can be combined:
 idf.py --port /dev/ttyUSB0 flash monitor
 ```
 
-## Sync to latest sources
+  - Please follow example READMEs for more details.
 
-- `components/tflite-lib` directory contains the tflite micro sources.
-- If you need the latest head, just run `sync_from_tflite_micro.sh`.
+## ESP-NN Integration
+[ESP-NN](components/esp-nn) contains optimized kernel implementations for kernels used in TFLite Micro. The library is integrated with this repo and gets compiled as a part of every example. Additional information along with performance numbers can be found [here](components/esp-nn/README.md).
+
+### Performance Comparison
+
+A quick summary of ESP-NN optimisations, as measured on ESP32-S3:
+
+|   TFLite Micro Example  | without ESP-NN  | with ESP-NN |
+| ----------------------- | --------------- | ----------- |
+|   Person Detection      |     2300ms      |    54ms     |
+
+Details:
+  - The above is time taken for execution of the `invoke()` call
+  - Internal memory used
+  - CPU freq set at 240MHz
+
+
+Detailed kernelwise performance can be found [here](components/esp-nn/README.md).
+
+## Sync to latest TFLite Micro upstream
+
+As per the upstream repository policy, the tflite-lib is copied into the components directory in this repository. We keep updating this to the latest upstream version from time to time. Should you, in any case, wish to update it locally, you may run the `scripts/sync_from_tflite_micro.sh` script.
 
 ## Contributing
 - If you find an issue in these examples, or wish to submit an enhancement request, please use the Issues section on Github.
