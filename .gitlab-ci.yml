@@ -21,7 +21,9 @@ before_script:
 .setup_idf: &setup_idf
     - cd ${CI_PROJECT_DIR}
     # - git clone --recursive --single-branch -b release/v4.3 --reference-if-able /local_references/gitlab/ ssh://git@gitlab.espressif.cn:27227/espressif/esp-idf.git
-    - git clone --recursive --single-branch -b release/v4.3 --reference-if-able /local_references/gitlab/ https://gitlab-ci-token:${BOT_TOKEN}@gitlab.espressif.cn:6688/espressif/esp-idf.git
+    - echo "${IDF_BRANCH_NAME}"
+    - echo ${IDF_BRANCH_NAME}
+    - git clone --recursive --single-branch -b ${IDF_BRANCH_NAME} --reference-if-able /local_references/gitlab/ https://gitlab-ci-token:${BOT_TOKEN}@gitlab.espressif.cn:6688/espressif/esp-idf.git
     - cd esp-idf
     - ./install.sh
     - . export.sh
@@ -31,13 +33,36 @@ before_script:
 
 .test_build: &test_build
     # Build examples
-    - ./scripts/build_examples.sh
+    - ./scripts/build_examples.sh $TARGET
 
 build:gitlab:default:
   stage: build
   image: tflite-micro
   tags:
     - build
+  variables:
+    IDF_BRANCH_NAME: "release/v4.3"
+    TARGET: "esp32"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: never
+    - when: always
+  script:
+    - cd ${CI_PROJECT_DIR}
+    # setup esp-idf
+    - *setup_idf
+    # build examples
+    - *test_build
+    - cd ${CI_PROJECT_DIR}
+
+build:gitlab:esp32s3:
+  stage: build
+  image: tflite-micro
+  tags:
+    - build
+  variables:
+    IDF_BRANCH_NAME: "release/v4.4"
+    TARGET: "esp32s3"
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       when: never
@@ -65,7 +90,8 @@ build:gitlab:default:
     - git status
     - git log -2
     # The variable ${SYNC_BRANCH_NAME} is not getting set here (currently), so branch name is directly added for `source_branch` key
-    - curl --request POST --url "https://gitlab.espressif.cn:6688/api/v4/projects/2457/merge_requests" --header "PRIVATE-TOKEN:${PUSH_TO_GITLAB_TOKEN}" --header "content-type:application/json" --data '{"title":"Update tflite-lib (synced from github) - ${CI_PIPELINE_ID}", "source_branch":"ci/sync_gh_tflite-lib", "target_branch":"master" }'
+    - curl --request POST --url "https://gitlab.espressif.cn:6688/api/v4/projects/2457/merge_requests" --header
+      "PRIVATE-TOKEN:${PUSH_TO_GITLAB_TOKEN}" --header "content-type:application/json" --data '{"title":"Update tflite-lib (synced from github) - "${CI_PIPELINE_ID}g, "source_branch":"ci/sync_gh_tflite-lib", "target_branch":"master" }'
     - git checkout -
 
 sync_from_github:on-schedule:

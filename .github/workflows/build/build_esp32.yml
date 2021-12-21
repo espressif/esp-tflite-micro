@@ -1,0 +1,45 @@
+# YAML schema for GitHub Actions:
+# https://help.github.com/en/actions/automating-your-workflow-with-github-actions/workflow-syntax-for-github-actions
+#
+# Helpful YAML parser to clarify YAML syntax:
+# https://yaml-online-parser.appspot.com/
+#
+#
+# This file contains the workflows that are run periodically to build the examples.
+
+name: CI
+
+on:
+  schedule:
+    # 1:30am UTC is 7am IST depending on daylight savings.
+    - cron: '30 13 * * *'
+
+  # Allow manually triggering of the workflow.
+  workflow_dispatch: {}
+
+jobs:
+  build_daily:
+    runs-on: ubuntu-latest
+    name: Build Examples
+
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'schedule' && github.repository == 'espressif/tflite-micro-esp-examples')
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+      - name: Clone IDF
+        run: |
+          git clone --recursive --single-branch -b release/v4.3 https://github.com/espressif/esp-idf.git
+          cd esp-idf
+          ./install.sh
+          cd -
+      - name: Build esp32
+        run: |
+          cd esp-idf
+          . export.sh
+          cd -
+          export IDF_PATH=`pwd`/esp-idf
+          echo "IDF_PATH is set to $IDF_PATH"
+          ./scripts/build_examples.sh esp32

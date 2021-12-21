@@ -29,14 +29,17 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: recursive
-      - name: Build
+      - name: Clone IDF
         run: |
           git clone --recursive --single-branch -b release/v4.3 https://github.com/espressif/esp-idf.git
           cd esp-idf
           ./install.sh
+          cd -
+      - name: Build esp32s3
+        run: |
+          cd esp-idf
           . export.sh
           cd -
           export IDF_PATH=`pwd`/esp-idf
           echo "IDF_PATH is set to $IDF_PATH"
-          ./scripts/build_examples.sh
-
+          ./scripts/build_examples.sh esp32s3

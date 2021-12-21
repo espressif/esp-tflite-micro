@@ -18,6 +18,8 @@
 
 set -e
 
+TARGET=$1
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "Script Dir is set to ${SCRIPT_DIR}"
 ROOT_DIR=${SCRIPT_DIR}/../
@@ -26,15 +28,25 @@ echo "Root Dir is set to ${ROOT_DIR}"
 # build examples
 echo "------------------------ Started: Building hello_world example ------------------------"
 cd "${ROOT_DIR}"/examples/hello_world
+# set target
+idf.py set-target $TARGET
+# build app
 idf.py build
 echo "------------------------ Done: Building hello_world example ------------------------"
 
 echo "------------------------ Started: Building person_detection example ------------------------"
 cd "${ROOT_DIR}"/examples/person_detection
+# set target
+idf.py set-target $TARGET
+# build app
 idf.py build
 echo "------------------------ Done: Building person_detection example ------------------------"
 
 echo "------------------------ Started: Building micro_speech example ------------------------"
 cd "${ROOT_DIR}"/examples/micro_speech
+# set target
+idf.py set-target $TARGET
+# build app
 idf.py build
 echo "------------------------ Done: Building micro_speech example ------------------------"
+
