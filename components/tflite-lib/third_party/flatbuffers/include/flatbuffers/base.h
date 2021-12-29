@@ -60,10 +60,6 @@
   #include <unistd.h>
 #endif
 
-#ifdef _STLPORT_VERSION
-  #define FLATBUFFERS_CPP98_STL
-#endif
-
 #ifdef __ANDROID__
   #include <android/api-level.h>
 #endif
@@ -152,9 +148,9 @@
   #endif
 #endif // !defined(FLATBUFFERS_LITTLEENDIAN)
 
-#define FLATBUFFERS_VERSION_MAJOR 1
-#define FLATBUFFERS_VERSION_MINOR 12
-#define FLATBUFFERS_VERSION_REVISION 0
+#define FLATBUFFERS_VERSION_MAJOR 2
+#define FLATBUFFERS_VERSION_MINOR 0
+#define FLATBUFFERS_VERSION_REVISION 5
 #define FLATBUFFERS_STRING_EXPAND(X) #X
 #define FLATBUFFERS_STRING(X) FLATBUFFERS_STRING_EXPAND(X)
 namespace flatbuffers {
@@ -187,10 +183,9 @@ namespace flatbuffers {
   #define FLATBUFFERS_CONSTEXPR_CPP11
 #endif
 
-// This macro is never used in code!
 #if (defined(__cplusplus) && __cplusplus >= 201402L) || \
     (defined(__cpp_constexpr) && __cpp_constexpr >= 201304)
-  #define FLATBUFFERS_CONSTEXPR_CPP14 FLATBUFFERS_CONSTEXPR
+  #define FLATBUFFERS_CONSTEXPR_CPP14 FLATBUFFERS_CONSTEXPR_CPP11
 #else
   #define FLATBUFFERS_CONSTEXPR_CPP14
 #endif
@@ -208,9 +203,15 @@ namespace flatbuffers {
 #if (!defined(_MSC_VER) || _MSC_FULL_VER >= 180020827) && \
     (!defined(__GNUC__) || (__GNUC__ * 100 + __GNUC_MINOR__ >= 404)) || \
     defined(__clang__)
-  #define FLATBUFFERS_DELETE_FUNC(func) func = delete;
+  #define FLATBUFFERS_DELETE_FUNC(func) func = delete
 #else
-  #define FLATBUFFERS_DELETE_FUNC(func) private: func;
+  #define FLATBUFFERS_DELETE_FUNC(func) private: func
+#endif
+
+#if (!defined(_MSC_VER) || _MSC_VER >= 1900) && \
+    (!defined(__GNUC__) || (__GNUC__ * 100 + __GNUC_MINOR__ >= 409)) || \
+    defined(__clang__)
+  #define FLATBUFFERS_DEFAULT_DECLARATION
 #endif
 
 // Check if we can use template aliases
@@ -251,6 +252,11 @@ namespace flatbuffers {
     #endif
   #endif // __has_include
 #endif // !FLATBUFFERS_HAS_STRING_VIEW
+
+#ifndef FLATBUFFERS_GENERAL_HEAP_ALLOC_OK
+  // Allow heap allocations to be used
+  #define FLATBUFFERS_GENERAL_HEAP_ALLOC_OK 1
+#endif // !FLATBUFFERS_GENERAL_HEAP_ALLOC_OK
 
 #ifndef FLATBUFFERS_HAS_NEW_STRTOD
   // Modern (C++11) strtod and strtof functions are available for use.
@@ -294,7 +300,7 @@ template<typename T> FLATBUFFERS_CONSTEXPR inline bool IsConstTrue(T t) {
 #if ((__cplusplus >= 201703L) \
     || (defined(_MSVC_LANG) &&  (_MSVC_LANG >= 201703L)))
   // All attributes unknown to an implementation are ignored without causing an error.
-  #define FLATBUFFERS_ATTRIBUTE(attr) [[attr]]
+  #define FLATBUFFERS_ATTRIBUTE(attr) attr
 
   #define FLATBUFFERS_FALLTHROUGH() [[fallthrough]]
 #else
@@ -334,6 +340,14 @@ typedef uintmax_t largest_scalar_t;
 
 // We support aligning the contents of buffers up to this size.
 #define FLATBUFFERS_MAX_ALIGNMENT 16
+
+/// @brief The length of a FlatBuffer file header.
+static const size_t kFileIdentifierLength = 4;
+
+inline bool VerifyAlignmentRequirements(size_t align, size_t min_align = 1) {
+  return (min_align <= align) && (align <= (FLATBUFFERS_MAX_ALIGNMENT)) &&
+         (align & (align - 1)) == 0;  // must be power of 2
+}
 
 #if defined(_MSC_VER)
   #pragma warning(disable: 4351) // C4351: new behavior: elements of array ... will be default initialized
@@ -431,6 +445,39 @@ template<typename T> __supress_ubsan__("alignment") void WriteScalar(void *p, Of
 __supress_ubsan__("unsigned-integer-overflow")
 inline size_t PaddingBytes(size_t buf_size, size_t scalar_size) {
   return ((~buf_size) + 1) & (scalar_size - 1);
+}
+
+// Generic 'operator==' with conditional specialisations.
+// T e - new value of a scalar field.
+// T def - default of scalar (is known at compile-time).
+template<typename T> inline bool IsTheSameAs(T e, T def) { return e == def; }
+
+#if defined(FLATBUFFERS_NAN_DEFAULTS) && \
+    defined(FLATBUFFERS_HAS_NEW_STRTOD) && (FLATBUFFERS_HAS_NEW_STRTOD > 0)
+// Like `operator==(e, def)` with weak NaN if T=(float|double).
+template<typename T> inline bool IsFloatTheSameAs(T e, T def) {
+  return (e == def) || ((def != def) && (e != e));
+}
+template<> inline bool IsTheSameAs<float>(float e, float def) {
+  return IsFloatTheSameAs(e, def);
+}
+template<> inline bool IsTheSameAs<double>(double e, double def) {
+  return IsFloatTheSameAs(e, def);
+}
+#endif
+
+// Check 'v' is out of closed range [low; high].
+// Workaround for GCC warning [-Werror=type-limits]:
+// comparison is always true due to limited range of data type.
+template<typename T>
+inline bool IsOutRange(const T &v, const T &low, const T &high) {
+  return (v < low) || (high < v);
+}
+
+// Check 'v' is in closed range [low; high].
+template<typename T>
+inline bool IsInRange(const T &v, const T &low, const T &high) {
+  return !IsOutRange(v, low, high);
 }
 
 }  // namespace flatbuffers
