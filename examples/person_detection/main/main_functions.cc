@@ -25,6 +25,9 @@ limitations under the License.
 #include "tensorflow/lite/schema/schema_generated.h"
 
 #include <esp_heap_caps.h>
+#include <esp_timer.h>
+#include "esp_main.h"
+
 
 // Globals, used for compatibility with Arduino-style sketches.
 namespace {
@@ -41,7 +44,7 @@ TfLiteTensor* input = nullptr;
 // signed value.
 
 // An area of memory to use for input, output, and intermediate arrays.
-constexpr int kTensorArenaSize = 135 * 1024;
+constexpr int kTensorArenaSize = 185 * 1024;
 static uint8_t *tensor_arena;//[kTensorArenaSize]; // Maybe we should move this to external
 }  // namespace
 
@@ -121,5 +124,61 @@ void loop() {
   // Process the inference results.
   int8_t person_score = output->data.uint8[kPersonIndex];
   int8_t no_person_score = output->data.uint8[kNotAPersonIndex];
+  RespondToDetection(error_reporter, person_score, no_person_score);
+}
+
+#if defined(COLLECT_CPU_STATS)
+  long long total_time = 0;
+  long long start_time = 0;
+  extern long long softmax_total_time;
+  extern long long dc_total_time;
+  extern long long conv_total_time;
+  extern long long fc_total_time;
+  extern long long pooling_total_time;
+  extern long long add_total_time;
+  extern long long mul_total_time;
+#endif
+
+void run_inference(void *ptr) {
+  /* Convert from uint8 picture data to int8 */
+  for (int i = 0; i < kNumCols * kNumRows; i++) {
+    input->data.int8[i] = ((uint8_t *) ptr)[i] ^ 0x80;
+  }
+
+#if defined(COLLECT_CPU_STATS)
+  long long start_time = esp_timer_get_time();
+#endif
+  // Run the model on this input and make sure it succeeds.
+  if (kTfLiteOk != interpreter->Invoke()) {
+    error_reporter->Report("Invoke failed.");
+  }
+
+#if defined(COLLECT_CPU_STATS)
+  long long total_time = (esp_timer_get_time() - start_time);
+  printf("Total time = %lld\n", total_time / 1000);
+  //printf("Softmax time = %lld\n", softmax_total_time / 1000);
+  printf("FC time = %lld\n", fc_total_time / 1000);
+  printf("DC time = %lld\n", dc_total_time / 1000);
+  printf("conv time = %lld\n", conv_total_time / 1000);
+  printf("Pooling time = %lld\n", pooling_total_time / 1000);
+  printf("add time = %lld\n", add_total_time / 1000);
+  printf("mul time = %lld\n", mul_total_time / 1000);
+
+  /* Reset times */
+  total_time = 0;
+  //softmax_total_time = 0;
+  dc_total_time = 0;
+  conv_total_time = 0;
+  fc_total_time = 0;
+  pooling_total_time = 0;
+  add_total_time = 0;
+  mul_total_time = 0;
+#endif
+
+  TfLiteTensor* output = interpreter->output(0);
+
+  // Process the inference results.
+  uint8_t person_score = output->data.uint8[kPersonIndex];
+  uint8_t no_person_score = output->data.uint8[kNotAPersonIndex];
   RespondToDetection(error_reporter, person_score, no_person_score);
 }
