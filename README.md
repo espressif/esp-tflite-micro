@@ -60,7 +60,7 @@ idf.py --port /dev/ttyUSB0 flash monitor
   - Please follow example READMEs for more details.
 
 ## ESP-NN Integration
-[ESP-NN](components/esp-nn) contains optimized kernel implementations for kernels used in TFLite Micro. The library is integrated with this repo and gets compiled as a part of every example. Additional information along with performance numbers can be found [here](components/esp-nn/README.md).
+[ESP-NN](https://github.com/espressif/esp-nn) contains optimized kernel implementations for kernels used in TFLite Micro. The library is integrated with this repo and gets compiled as a part of every example. Additional information along with performance numbers can be found [here](https://github.com/espressif/esp-nn#performance).
 
 ### Performance Comparison
 
@@ -76,7 +76,7 @@ Details:
   - CPU freq set at 240MHz
 
 
-Detailed kernelwise performance can be found [here](components/esp-nn/README.md).
+Detailed kernelwise performance can be found [here](https://github.com/espressif/esp-nn).
 
 ## Sync to latest TFLite Micro upstream
 
