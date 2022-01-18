@@ -7,7 +7,7 @@
 #
 # This file contains the workflows that are run periodically to build the examples.
 
-name: CI
+name: build_esp32
 
 on:
   schedule:

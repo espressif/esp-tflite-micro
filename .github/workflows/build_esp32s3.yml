@@ -7,7 +7,7 @@
 #
 # This file contains the workflows that are run periodically to build the examples.
 
-name: CI
+name: build_esp32s3
 
 on:
   schedule:
@@ -31,7 +31,7 @@ jobs:
           submodules: recursive
       - name: Clone IDF
         run: |
-          git clone --recursive --single-branch -b release/v4.3 https://github.com/espressif/esp-idf.git
+          git clone --recursive --single-branch -b release/v4.4 https://github.com/espressif/esp-idf.git
           cd esp-idf
           ./install.sh
           cd -
