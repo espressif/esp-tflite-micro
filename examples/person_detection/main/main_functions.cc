@@ -28,6 +28,7 @@ limitations under the License.
 #include <esp_timer.h>
 #include "esp_main.h"
 
+#include "pcb_qianzi_model_data.h"
 
 // Globals, used for compatibility with Arduino-style sketches.
 namespace {
@@ -44,7 +45,7 @@ TfLiteTensor* input = nullptr;
 // signed value.
 
 // An area of memory to use for input, output, and intermediate arrays.
-constexpr int kTensorArenaSize = 185 * 1024;
+constexpr int kTensorArenaSize = 512 * 1024;
 static uint8_t *tensor_arena;//[kTensorArenaSize]; // Maybe we should move this to external
 }  // namespace
 
@@ -58,7 +59,8 @@ void setup() {
 
   // Map the model into a usable data structure. This doesn't involve any
   // copying or parsing, it's a very lightweight operation.
-  model = tflite::GetModel(g_person_detect_model_data);
+  //model = tflite::GetModel(g_person_detect_model_data);
+  model = tflite::GetModel(pcb_qianzi_model_data);
   if (model->version() != TFLITE_SCHEMA_VERSION) {
     TF_LITE_REPORT_ERROR(error_reporter,
                          "Model provided is schema version %d not equal "
@@ -68,7 +70,7 @@ void setup() {
   }
 
   if (tensor_arena == NULL) {
-    tensor_arena = (uint8_t *) heap_caps_malloc(kTensorArenaSize, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    tensor_arena = (uint8_t *) heap_caps_malloc(kTensorArenaSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
   }
   if (tensor_arena == NULL) {
     printf("Couldn't allocate memory of %d bytes\n", kTensorArenaSize);
@@ -83,12 +85,17 @@ void setup() {
   //
   // tflite::AllOpsResolver resolver;
   // NOLINTNEXTLINE(runtime-global-variables)
-  static tflite::MicroMutableOpResolver<5> micro_op_resolver;
-  micro_op_resolver.AddAveragePool2D();
+  static tflite::MicroMutableOpResolver<9> micro_op_resolver;
+  //micro_op_resolver.AddAveragePool2D();
   micro_op_resolver.AddConv2D();
   micro_op_resolver.AddDepthwiseConv2D();
   micro_op_resolver.AddReshape();
   micro_op_resolver.AddSoftmax();
+  micro_op_resolver.AddPad();
+  micro_op_resolver.AddPadV2();
+  micro_op_resolver.AddAdd();
+  micro_op_resolver.AddAddN();
+  micro_op_resolver.AddFullyConnected();  
 
   // Build an interpreter to run the model with.
   // NOLINTNEXTLINE(runtime-global-variables)
@@ -122,9 +129,9 @@ void loop() {
   TfLiteTensor* output = interpreter->output(0);
 
   // Process the inference results.
-  int8_t person_score = output->data.uint8[kPersonIndex];
-  int8_t no_person_score = output->data.uint8[kNotAPersonIndex];
-  RespondToDetection(error_reporter, person_score, no_person_score);
+  //int8_t person_score = output->data.uint8[kPersonIndex];
+  //int8_t no_person_score = output->data.uint8[kNotAPersonIndex];
+  //RespondToDetection(error_reporter, person_score, no_person_score);
 }
 
 #if defined(COLLECT_CPU_STATS)
@@ -178,7 +185,7 @@ void run_inference(void *ptr) {
   TfLiteTensor* output = interpreter->output(0);
 
   // Process the inference results.
-  uint8_t person_score = output->data.uint8[kPersonIndex];
-  uint8_t no_person_score = output->data.uint8[kNotAPersonIndex];
-  RespondToDetection(error_reporter, person_score, no_person_score);
+  uint8_t qianzi_score = output->data.uint8[kQianziIndex];
+  uint8_t pcb_score = output->data.uint8[kPCBIndex];
+  RespondToDetection(error_reporter, qianzi_score, pcb_score);
 }
