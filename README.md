@@ -7,8 +7,8 @@
 
 |   Build Type  |  Status    |
 | -----------   |  --------- |
-| Build (ESP32) | ![CI](https://github.com/espressif/tflite-micro-esp-examples/actions/workflows/build_esp32.yml/badge.svg)
-| Build (ESP32S3) | ![CI](https://github.com/espressif/tflite-micro-esp-examples/actions/workflows/build_esp32s3.yml/badge.svg)
+| Build (ESP32) | [![build_esp32](https://github.com/espressif/tflite-micro-esp-examples/actions/workflows/build_esp32.yml/badge.svg)](https://github.com/espressif/tflite-micro-esp-examples/actions/workflows/build_esp32.yml) 
+| Build (ESP32S3) | [![build_esp32s3](https://github.com/espressif/tflite-micro-esp-examples/actions/workflows/build_esp32s3.yml/badge.svg)](https://github.com/espressif/tflite-micro-esp-examples/actions/workflows/build_esp32s3.yml)
 
 ## How to Install
 
