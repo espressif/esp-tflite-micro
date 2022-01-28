@@ -29,8 +29,10 @@ limitations under the License.
 #include "freertos/FreeRTOS.h"
 #include <esp_timer.h>
 
+
 #if ESP_NN
 #include <esp_nn.h>
+#define USE_DYNAMIC_ALLOC 1
 #endif
 
 
@@ -40,7 +42,9 @@ long long conv_total_time = 0;
 namespace tflite {
 namespace {
 #if ESP_NN
+#ifndef USE_DYNAMIC_ALLOC
 static int buffer_idx = -1;
+#endif
 #endif
 void* Init(TfLiteContext* context, const char* buffer, size_t length) {
   TFLITE_DCHECK(context->AllocatePersistentBuffer != nullptr);
@@ -102,6 +106,7 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
       filter_height, output_width, output_height, input->type, data));
 
 #if ESP_NN
+#ifndef USE_DYNAMIC_ALLOC
   if (input->type == kTfLiteInt8) {
     int scratch_buf_size = esp_nn_get_conv_scratch_size(
         input_width, input_height, input->dims->data[3],
@@ -111,6 +116,7 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
         context, scratch_buf_size, &buffer_idx));
     }
   }
+#endif
 #endif
   return kTfLiteOk;
 }
@@ -166,13 +172,24 @@ inline void EvalQuantizedPerChannel(
       TFLITE_DCHECK_EQ(bias_shape.FlatSize(), output_depth);
     }
 
-    void *scratch_buf = NULL;// = calloc(1, scratch_buf_size + 128 + 16);
-    //int align_offset = 16 - ((int) (scratch_buf) & 15);
-    //esp_nn_set_conv_scratch_buf((void *) ((int) scratch_buf + align_offset));
+  void *scratch_buf = NULL;
+#if USE_DYNAMIC_ALLOC
+    int scratch_buf_size = esp_nn_get_conv_scratch_size(
+        input_width, input_height, input_depth,
+        output_depth, filter_width, filter_height);
+    scratch_buf = heap_caps_malloc(scratch_buf_size + 16, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (scratch_buf == NULL) {
+      printf("couldn't allocate %d bytes\n", scratch_buf_size);
+    }
+    int align_offset = 16 - ((int) (scratch_buf) & 15);
+    esp_nn_set_conv_scratch_buf((void *) ((int) scratch_buf + align_offset));
+#else
     if (buffer_idx > -1) {
       scratch_buf = context->GetScratchBuffer(context, buffer_idx);
+      //printf("out ptr %p, scratch_ptr %p\n", output_data, scratch_buf);
     }
     esp_nn_set_conv_scratch_buf(scratch_buf);
+#endif
 
     const int input_size = input_width * input_height * input_depth;
     const int output_size = output_width * output_height * output_depth;
@@ -190,6 +207,11 @@ inline void EvalQuantizedPerChannel(
                      data.per_channel_output_multiplier,
                      activation_min, activation_max);
     }
+#if USE_DYNAMIC_ALLOC
+    if (scratch_buf) {
+      free(scratch_buf);
+    }
+#endif
   } else {
     reference_integer_ops::ConvPerChannel(
         ConvParamsQuantized(params, data),

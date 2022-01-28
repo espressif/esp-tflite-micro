@@ -95,7 +95,7 @@ void setup() {
   micro_op_resolver.AddPadV2();
   micro_op_resolver.AddAdd();
   micro_op_resolver.AddAddN();
-  micro_op_resolver.AddFullyConnected();  
+  micro_op_resolver.AddFullyConnected();
 
   // Build an interpreter to run the model with.
   // NOLINTNEXTLINE(runtime-global-variables)
