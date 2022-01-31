@@ -91,7 +91,7 @@ build:gitlab:esp32s3:
     - git log -2
     # The variable ${SYNC_BRANCH_NAME} is not getting set here (currently), so branch name is directly added for `source_branch` key
     - curl --request POST --url "https://gitlab.espressif.cn:6688/api/v4/projects/2457/merge_requests" --header
-      "PRIVATE-TOKEN:${PUSH_TO_GITLAB_TOKEN}" --header "content-type:application/json" --data '{"title":"Update tflite-lib (synced from github) - "${CI_PIPELINE_ID}g, "source_branch":"ci/sync_gh_tflite-lib", "target_branch":"master" }'
+      "PRIVATE-TOKEN:${PUSH_TO_GITLAB_TOKEN}" --header "content-type:application/json" --data '{"title":"Update tflite-lib (synced from github) - '${CI_PIPELINE_ID}'", "source_branch":"ci/sync_gh_tflite-lib", "target_branch":"master" }'
     - git checkout -
 
 sync_from_github:on-schedule:
