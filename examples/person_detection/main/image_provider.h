@@ -35,8 +35,13 @@ limitations under the License.
 // ensure there's a specialized implementation that accesses hardware APIs.
 #ifndef CONFIG_PERSON_DETECTION_STATIC
 
+// Returns buffer to be displayed
+void *image_provider_get_display_buf();
+
 TfLiteStatus GetImage(tflite::ErrorReporter* error_reporter, int image_width,
                       int image_height, int channels, int8_t* image_data);
+
+TfLiteStatus InitCamera(tflite::ErrorReporter* error_reporter);
 
 #endif /* CONFIG_PERSON_DETECTION_STATIC */
 

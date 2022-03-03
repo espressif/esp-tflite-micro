@@ -1,40 +1,34 @@
-# Copyright 2020 The TensorFlow Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+menu  "Application Configuration"
+menu "Camera Configuration"
 
-menu "Camera Pins"
-choice CAMERA_MODEL
+choice CAMERA_MODULE
     bool "Select Camera Pinout"
-    default CAMERA_MODEL_WROVER_KIT
+    default CAMERA_MODULE_WROVER_KIT
     help
         Select Camera Pinout.
 
-config CAMERA_MODEL_WROVER_KIT
-    bool "WROVER-KIT With OV2640 Module"
-config CAMERA_MODEL_ESP_EYE
-    bool "ESP_EYE DevKit"
-config CAMERA_MODEL_M5STACK_PSRAM
-    bool "M5Stack Camera With PSRAM"
-config CAMERA_MODEL_M5STACK_WIDE
-    bool "M5Stack Camera F (Wide)"
-config CAMERA_MODEL_AI_THINKER
-    bool "ESP32-CAM by AI-Thinker"
-config CAMERA_MODEL_CUSTOM
-    bool "Custom Camera Pinout"
+    config CAMERA_MODULE_WROVER_KIT
+        bool "WROVER-KIT With OV2640 Module"
+    config CAMERA_MODULE_ESP_EYE
+        bool "ESP-EYE DevKit"
+    config CAMERA_MODULE_ESP_S2_KALUGA
+        bool "ESP32-S2-Kaluga-1 V1.3"
+    config CAMERA_MODULE_ESP_S3_EYE
+        bool "ESP-S3-EYE DevKit"
+    config CAMERA_MODULE_ESP32_CAM_BOARD
+        bool "ESP32 Camera Development Board"
+    config CAMERA_MODULE_M5STACK_PSRAM
+        bool "M5Stack Camera With PSRAM"
+    config CAMERA_MODULE_M5STACK_WIDE
+        bool "M5Stack Camera F (Wide)"
+    config CAMERA_MODULE_AI_THINKER
+        bool "ESP32-CAM by AI-Thinker"
+    config CAMERA_MODULE_CUSTOM
+        bool "Custom Camera Pinout"
 endchoice
 
 config CAMERA_PIN_PWDN
-    depends on CAMERA_MODEL_CUSTOM
+    depends on CAMERA_MODULE_CUSTOM
     int "Power Down pin"
     range -1 33
     default -1
@@ -42,7 +36,7 @@ config CAMERA_PIN_PWDN
         Select Power Down pin or -1 for unmanaged.
 
 config CAMERA_PIN_RESET
-    depends on CAMERA_MODEL_CUSTOM
+    depends on CAMERA_MODULE_CUSTOM
     int "Reset pin"
     range -1 33
     default -1
@@ -50,7 +44,7 @@ config CAMERA_PIN_RESET
         Select Camera Reset pin or -1 for software reset.
 
 config CAMERA_PIN_XCLK
-    depends on CAMERA_MODEL_CUSTOM
+    depends on CAMERA_MODULE_CUSTOM
     int "XCLK pin"
     range 0 33
     default 21
@@ -58,7 +52,7 @@ config CAMERA_PIN_XCLK
         Select Camera XCLK pin.
 
 config CAMERA_PIN_SIOD
-    depends on CAMERA_MODEL_CUSTOM
+    depends on CAMERA_MODULE_CUSTOM
     int "SIOD pin"
     range 0 33
     default 26
@@ -66,7 +60,7 @@ config CAMERA_PIN_SIOD
         Select Camera SIOD pin.
 
 config CAMERA_PIN_SIOC
-    depends on CAMERA_MODEL_CUSTOM
+    depends on CAMERA_MODULE_CUSTOM
     int "SIOC pin"
     range 0 33
     default 27
@@ -74,7 +68,7 @@ config CAMERA_PIN_SIOC
         Select Camera SIOC pin.
 
 config CAMERA_PIN_VSYNC
-    depends on CAMERA_MODEL_CUSTOM
+    depends on CAMERA_MODULE_CUSTOM
     int "VSYNC pin"
     range 0 39
     default 25
@@ -82,7 +76,7 @@ config CAMERA_PIN_VSYNC
         Select Camera VSYNC pin.
 
 config CAMERA_PIN_HREF
-    depends on CAMERA_MODEL_CUSTOM
+    depends on CAMERA_MODULE_CUSTOM
     int "HREF pin"
     range 0 39
     default 23
@@ -90,7 +84,7 @@ config CAMERA_PIN_HREF
         Select Camera HREF pin.
 
 config CAMERA_PIN_PCLK
-    depends on CAMERA_MODEL_CUSTOM
+    depends on CAMERA_MODULE_CUSTOM
     int "PCLK pin"
     range 0 39
     default 25
@@ -98,7 +92,7 @@ config CAMERA_PIN_PCLK
         Select Camera PCLK pin.
 
 config CAMERA_PIN_Y2
-    depends on CAMERA_MODEL_CUSTOM
+    depends on CAMERA_MODULE_CUSTOM
     int "Y2 pin"
     range 0 39
     default 4
@@ -106,7 +100,7 @@ config CAMERA_PIN_Y2
         Select Camera Y2 pin.
 
 config CAMERA_PIN_Y3
-    depends on CAMERA_MODEL_CUSTOM
+    depends on CAMERA_MODULE_CUSTOM
     int "Y3 pin"
     range 0 39
     default 5
@@ -114,7 +108,7 @@ config CAMERA_PIN_Y3
         Select Camera Y3 pin.
 
 config CAMERA_PIN_Y4
-    depends on CAMERA_MODEL_CUSTOM
+    depends on CAMERA_MODULE_CUSTOM
     int "Y4 pin"
     range 0 39
     default 18
@@ -122,7 +116,7 @@ config CAMERA_PIN_Y4
         Select Camera Y4 pin.
 
 config CAMERA_PIN_Y5
-    depends on CAMERA_MODEL_CUSTOM
+    depends on CAMERA_MODULE_CUSTOM
     int "Y5 pin"
     range 0 39
     default 19
@@ -130,7 +124,7 @@ config CAMERA_PIN_Y5
         Select Camera Y5 pin.
 
 config CAMERA_PIN_Y6
-    depends on CAMERA_MODEL_CUSTOM
+    depends on CAMERA_MODULE_CUSTOM
     int "Y6 pin"
     range 0 39
     default 36
@@ -138,7 +132,7 @@ config CAMERA_PIN_Y6
         Select Camera Y6 pin.
 
 config CAMERA_PIN_Y7
-    depends on CAMERA_MODEL_CUSTOM
+    depends on CAMERA_MODULE_CUSTOM
     int "Y7 pin"
     range 0 39
     default 39
@@ -146,7 +140,7 @@ config CAMERA_PIN_Y7
         Select Camera Y7 pin.
 
 config CAMERA_PIN_Y8
-    depends on CAMERA_MODEL_CUSTOM
+    depends on CAMERA_MODULE_CUSTOM
     int "Y8 pin"
     range 0 39
     default 34
@@ -154,11 +148,15 @@ config CAMERA_PIN_Y8
         Select Camera Y8 pin.
 
 config CAMERA_PIN_Y9
-    depends on CAMERA_MODEL_CUSTOM
+    depends on CAMERA_MODULE_CUSTOM
     int "Y9 pin"
     range 0 39
     default 35
     help
         Select Camera Y9 pin.
+endmenu
 
+menu "Display support"
+
+endmenu
 endmenu

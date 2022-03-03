@@ -85,3 +85,16 @@ The output is person and no_person score printed on the log screen.
   ```
   #define CLI_ONLY_INFERENCE 1
   ```
+
+### Using Display
+
+If you want to use display or your dev board supports it. (ESP-S3-EYE), you can enable it by disabling `CLI_ONLY_INFERENCE` and enabling following macro from `esp_main.h`
+```
+#define DISPLAY_SUPPORT 1
+```
+
+You will need to select appropriate drivers via menuconfig:
+
+`idf.py menuconfig` > `Component Config` > `LCD drivers`
+
+  * When display is enabled, you will see camera feed and `green` color strip. The strip color will change to `red` when a person is detected.
