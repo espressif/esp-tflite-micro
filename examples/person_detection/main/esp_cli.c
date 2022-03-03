@@ -240,7 +240,7 @@ int esp_cli_init()
     if (cli_started) {
         return 0;
     }
-#define ESP_CLI_STACK_SIZE 15000
+#define ESP_CLI_STACK_SIZE (4 * 1024)
     //StackType_t *task_stack = (StackType_t *) calloc(1, ESP_CLI_STACK_SIZE);
     //static StaticTask_t task_buf;
     if(pdPASS != xTaskCreate(&esp_cli_task, "cli_task", ESP_CLI_STACK_SIZE, NULL, 4,NULL)) {

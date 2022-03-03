@@ -24,10 +24,13 @@ limitations under the License.
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 #include <esp_heap_caps.h>
 #include <esp_timer.h>
+#include <esp_log.h>
 #include "esp_main.h"
-
 
 // Globals, used for compatibility with Arduino-style sketches.
 namespace {
@@ -44,7 +47,11 @@ TfLiteTensor* input = nullptr;
 // signed value.
 
 // An area of memory to use for input, output, and intermediate arrays.
-constexpr int kTensorArenaSize = 185 * 1024;
+#if CONFIG_IDF_TARGET_ESP32
+constexpr int kTensorArenaSize = 135 * 1024;
+#else
+constexpr int kTensorArenaSize = 175 * 1024;
+#endif
 static uint8_t *tensor_arena;//[kTensorArenaSize]; // Maybe we should move this to external
 }  // namespace
 
@@ -105,6 +112,13 @@ void setup() {
 
   // Get information about the memory area to use for the model's input.
   input = interpreter->input(0);
+
+  // Initialize Camera
+  TfLiteStatus init_status = InitCamera(error_reporter);
+  if (init_status != kTfLiteOk) {
+    TF_LITE_REPORT_ERROR(error_reporter, "InitCamera failed\n");
+    return;
+  }
 }
 
 // The name of this function is important for Arduino compatibility.
@@ -114,6 +128,7 @@ void loop() {
                             input->data.int8)) {
     TF_LITE_REPORT_ERROR(error_reporter, "Image capture failed.");
   }
+
   // Run the model on this input and make sure it succeeds.
   if (kTfLiteOk != interpreter->Invoke()) {
     TF_LITE_REPORT_ERROR(error_reporter, "Invoke failed.");
@@ -124,7 +139,10 @@ void loop() {
   // Process the inference results.
   int8_t person_score = output->data.uint8[kPersonIndex];
   int8_t no_person_score = output->data.uint8[kNotAPersonIndex];
+
+  // Respond to detection
   RespondToDetection(error_reporter, person_score, no_person_score);
+  vTaskDelay(1); // to avoid watchdog trigger
 }
 
 #if defined(COLLECT_CPU_STATS)
