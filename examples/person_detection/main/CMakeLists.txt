@@ -15,5 +15,5 @@ idf_component_register(
         "esp_lcd.c"
         "esp_cli.c"
 
-    PRIV_REQUIRES console tflite-lib esp32-camera screen static_images spi_flash
+    PRIV_REQUIRES console tflite-lib esp32-camera screen static_images spi_flash fb_gfx
     INCLUDE_DIRS "")

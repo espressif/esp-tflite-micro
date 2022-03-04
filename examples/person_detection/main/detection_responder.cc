@@ -35,7 +35,7 @@ void RespondToDetection(tflite::ErrorReporter* error_reporter,
   }
   app_lcd_color_for_detection(color);
 
-  // display frame
+  // display frame (freed by lcd task)
   lcd_frame_t *frame = (lcd_frame_t *) malloc(sizeof(lcd_frame_t));
   frame->width = 96 * 2;
   frame->height = 96 * 2;
