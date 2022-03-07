@@ -16,6 +16,7 @@
 #include "esp_timer.h"
 #include "esp_camera.h"
 #include "esp_lcd.h"
+#include "fb_gfx.h"
 
 #include "logo_en_240x240_lcd.h"
 
@@ -28,6 +29,7 @@ static QueueHandle_t xQueueFrameI = NULL;
 static QueueHandle_t xQueueFrameO = NULL;
 static bool gReturnFB = true;
 static int color_det = 65535; // white
+static uint16_t *strip_buf;
 
 static void task_process_handler(void *arg)
 {
@@ -35,9 +37,20 @@ static void task_process_handler(void *arg)
 
     uint64_t start_time = esp_timer_get_time();
     int total_frames = 0;
+    camera_fb_t *fb = (camera_fb_t *) malloc(sizeof (camera_fb_t));
+    if (fb == NULL) {
+        ESP_LOGE(TAG, "fb memory allocation failed! line %d", __LINE__);
+        return;
+    }
+    fb->buf = (void *) strip_buf;
+    fb->len = 240 * (240 - 192);
+    fb->width = 240;
+    fb->height = (240 - 192);
+    fb->format = PIXFORMAT_RGB565;
+
     while (true) {
         if (xQueueReceive(xQueueFrameI, &frame, portMAX_DELAY)) {
-            g_lcd.draw_bitmap(0, 0, frame->width, frame->height, (uint16_t *)frame->buf);
+            g_lcd.draw_bitmap(24, 0, frame->width, frame->height, (uint16_t *)frame->buf);
 
             // if (xQueueFrameO) {
             //     xQueueSend(xQueueFrameO, &frame, portMAX_DELAY);
@@ -46,29 +59,20 @@ static void task_process_handler(void *arg)
             // } else {
             //     free(frame);
             // }
-
-            scr_info_t lcd_info;
-            g_lcd.get_info(&lcd_info);
-            uint16_t *buffer = (uint16_t *)malloc(lcd_info.width * sizeof(uint16_t));
-            if (NULL == buffer) {
-                ESP_LOGE(TAG, "Memory for bitmap is not enough");
-            } else {
-                for (size_t i = 0; i < lcd_info.width; i++) {
-                    buffer[i] = (int16_t) color_det;
-                }
-
-                for (int y = 200; y < lcd_info.height; y++) {
-                    g_lcd.draw_bitmap(0, y, lcd_info.width, 1, buffer);
-                }
-
-                free(buffer);
+            for (int i = 0; i < 240 * (240 - 192); i++) {
+                strip_buf[i] = color_det;
             }
-
             total_frames++;
             uint64_t total_time = (esp_timer_get_time() - start_time) / 1000;
-            printf("\raverage fps: %2lld", (total_frames * 1000) / total_time);
+            int avg_fps = (total_frames * 1000) / total_time;
+            printf("\raverage fps: %3d", avg_fps);
+            // write fps on display
+            fb_gfx_printf(fb, 40, 12, 0xffff, "avg fps:%3d", avg_fps);
+            g_lcd.draw_bitmap(0, 192, fb->width, fb->height, (uint16_t *)fb->buf);
+            free(frame);
         }
     }
+    free(fb);
 }
 
 esp_err_t register_lcd(const QueueHandle_t frame_i, const QueueHandle_t frame_o, const bool return_fb)
@@ -124,6 +128,13 @@ esp_err_t register_lcd(const QueueHandle_t frame_i, const QueueHandle_t frame_o,
     app_lcd_draw_wallpaper();
     vTaskDelay(pdMS_TO_TICKS(200));
 
+    strip_buf = (uint16_t *) heap_caps_malloc(g_lcd_info.width * (g_lcd_info.height - 192) * sizeof(uint16_t),
+                                              MALLOC_CAP_8BIT | MALLOC_CAP_SPIRAM);
+    if (strip_buf == NULL) {
+        ESP_LOGE(TAG, "strip buffer not allocated");
+        return ESP_FAIL;
+    }
+
     xQueueFrameI = frame_i;
     xQueueFrameO = frame_o;
     gReturnFB = return_fb;
@@ -137,7 +148,8 @@ void app_lcd_draw_wallpaper()
     scr_info_t lcd_info;
     g_lcd.get_info(&lcd_info);
 
-    uint16_t *pixels = (uint16_t *)heap_caps_malloc((logo_en_240x240_lcd_width * logo_en_240x240_lcd_height) * sizeof(uint16_t), MALLOC_CAP_8BIT | MALLOC_CAP_SPIRAM);
+    uint16_t *pixels = (uint16_t *) heap_caps_malloc((logo_en_240x240_lcd_width * logo_en_240x240_lcd_height) * sizeof(uint16_t),
+                                                     MALLOC_CAP_8BIT | MALLOC_CAP_SPIRAM);
     if (NULL == pixels) {
         ESP_LOGE(TAG, "Memory for bitmap is not enough");
         return;
