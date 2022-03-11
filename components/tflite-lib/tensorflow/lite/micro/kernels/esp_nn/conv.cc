@@ -36,22 +36,26 @@ limitations under the License.
 
 long long conv_total_time = 0;
 
-
 namespace tflite {
 namespace {
+
+struct NodeData {
+  OpDataConv op_data;
 #if ESP_NN
-static int buffer_idx = -1;
+  int buffer_idx;
 #endif
+};
+
 void* Init(TfLiteContext* context, const char* buffer, size_t length) {
   TFLITE_DCHECK(context->AllocatePersistentBuffer != nullptr);
-  return context->AllocatePersistentBuffer(context, sizeof(OpDataConv));
+  return context->AllocatePersistentBuffer(context, sizeof(NodeData));
 }
 
 TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
   TFLITE_DCHECK(node->user_data != nullptr);
   TFLITE_DCHECK(node->builtin_data != nullptr);
 
-  OpDataConv* data = static_cast<OpDataConv*>(node->user_data);
+  NodeData* data = static_cast<NodeData*>(node->user_data);
   const auto& params =
       *(static_cast<const TfLiteConvParams*>(node->builtin_data));
 
@@ -76,10 +80,10 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
 
   // Dynamically allocate per-channel quantization parameters.
   const int num_channels = filter->dims->data[kConvQuantizedDimension];
-  data->per_channel_output_multiplier =
+  data->op_data.per_channel_output_multiplier =
       static_cast<int32_t*>(context->AllocatePersistentBuffer(
           context, num_channels * sizeof(int32_t)));
-  data->per_channel_output_shift =
+  data->op_data.per_channel_output_shift =
       static_cast<int32_t*>(context->AllocatePersistentBuffer(
           context, num_channels * sizeof(int32_t)));
 
@@ -104,7 +108,7 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
 
   TF_LITE_ENSURE_STATUS(CalculateOpDataConv(
       context, node, params, input_width, input_height, filter_width,
-      filter_height, output_width, output_height, input->type, data));
+      filter_height, output_width, output_height, input->type, &data->op_data));
 
 #if ESP_NN
   if (input->type == kTfLiteInt8) {
@@ -113,7 +117,9 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
         output->dims->data[3], filter_width, filter_height);
     if (scratch_buf_size > 0) {
       TF_LITE_ENSURE_STATUS(context->RequestScratchBufferInArena(
-        context, scratch_buf_size, &buffer_idx));
+        context, scratch_buf_size, &data->buffer_idx));
+    } else {
+      data->buffer_idx = -1;
     }
   }
 #endif
@@ -129,7 +135,7 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
 // Fixed-point per-channel-quantization convolution Int8 function wrapper.
 inline void EvalQuantizedPerChannel(
     TfLiteContext* context, TfLiteNode* node, const TfLiteConvParams& params,
-    const OpDataConv& data, const TfLiteEvalTensor* input,
+    const NodeData& data, const TfLiteEvalTensor* input,
     const TfLiteEvalTensor* filter, const TfLiteEvalTensor* bias,
     TfLiteEvalTensor* output) {
   const int dilation_width_factor = params.dilation_width_factor;
@@ -145,12 +151,12 @@ inline void EvalQuantizedPerChannel(
     const int8_t *input_data = tflite::micro::GetTensorData<int8_t>(input);
     int8_t *output_data = tflite::micro::GetTensorData<int8_t>(output);
 
-    const int32_t input_offset = -data.input_zero_point;
-    const int32_t output_offset = data.output_zero_point;
+    const int32_t input_offset = -data.op_data.input_zero_point;
+    const int32_t output_offset = data.op_data.output_zero_point;
     const int stride_width = params.stride_width;
     const int stride_height = params.stride_height;
-    const int pad_width = data.padding.width;
-    const int pad_height = data.padding.height;
+    const int pad_width = data.op_data.padding.width;
+    const int pad_height = data.op_data.padding.height;
 
     const int input_height = input_shape.Dims(1);
     const int input_width = input_shape.Dims(2);
@@ -160,8 +166,8 @@ inline void EvalQuantizedPerChannel(
     const int output_width = output_shape.Dims(2);
 
     // Set min and max value of the output.
-    const int32_t activation_min = data.output_activation_min;
-    const int32_t activation_max = data.output_activation_max;
+    const int32_t activation_min = data.op_data.output_activation_min;
+    const int32_t activation_max = data.op_data.output_activation_max;
 
     // Consistency check.
     TFLITE_DCHECK_LE(activation_min, activation_max);
@@ -176,11 +182,9 @@ inline void EvalQuantizedPerChannel(
       TFLITE_DCHECK_EQ(bias_shape.FlatSize(), output_depth);
     }
 
-    void *scratch_buf = NULL;// = calloc(1, scratch_buf_size + 128 + 16);
-    //int align_offset = 16 - ((int) (scratch_buf) & 15);
-    //esp_nn_set_conv_scratch_buf((void *) ((int) scratch_buf + align_offset));
-    if (buffer_idx > -1) {
-      scratch_buf = context->GetScratchBuffer(context, buffer_idx);
+    void *scratch_buf = NULL;
+    if (data.buffer_idx > -1) {
+      scratch_buf = context->GetScratchBuffer(context, data.buffer_idx);
     }
     esp_nn_set_conv_scratch_buf(scratch_buf);
 
@@ -196,15 +200,15 @@ inline void EvalQuantizedPerChannel(
                      tflite::micro::GetTensorData<int32_t>(bias),
                      output_data + i_batch * output_size,
                      output_width, output_height, output_depth, output_offset,
-                     data.per_channel_output_shift,
-                     data.per_channel_output_multiplier,
+                     data.op_data.per_channel_output_shift,
+                     data.op_data.per_channel_output_multiplier,
                      activation_min, activation_max);
     }
   } else {
     reference_integer_ops::ConvPerChannel(
-        ConvParamsQuantized(params, data),
-        data.per_channel_output_multiplier,
-        data.per_channel_output_shift,
+        ConvParamsQuantized(params, data.op_data),
+        data.op_data.per_channel_output_multiplier,
+        data.op_data.per_channel_output_shift,
         tflite::micro::GetTensorShape(input),
         tflite::micro::GetTensorData<int8_t>(input),
         tflite::micro::GetTensorShape(filter),
@@ -233,7 +237,7 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
   const auto& params =
       *(reinterpret_cast<TfLiteConvParams*>(node->builtin_data));
   TFLITE_DCHECK(node->user_data != nullptr);
-  const auto& data = *(static_cast<const OpDataConv*>(node->user_data));
+  const auto& data = *(static_cast<const NodeData*>(node->user_data));
 
   TF_LITE_ENSURE_EQ(context, input->type, output->type);
   TF_LITE_ENSURE_MSG(context, input->type == filter->type,
@@ -243,7 +247,8 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
   switch (input->type) {  // Already know in/out types are same.
     case kTfLiteFloat32: {
       tflite::reference_ops::Conv(
-          ConvParamsFloat(params, data), tflite::micro::GetTensorShape(input),
+          ConvParamsFloat(params, data.op_data),
+          tflite::micro::GetTensorShape(input),
           tflite::micro::GetTensorData<float>(input),
           tflite::micro::GetTensorShape(filter),
           tflite::micro::GetTensorData<float>(filter),
@@ -260,8 +265,10 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
                               bias, output);
 #else
       reference_integer_ops::ConvPerChannel(
-          ConvParamsQuantized(params, data), data.per_channel_output_multiplier,
-          data.per_channel_output_shift, tflite::micro::GetTensorShape(input),
+          ConvParamsQuantized(params, data.op_data),
+          data.op_data.per_channel_output_multiplier,
+          data.op_data.per_channel_output_shift,
+          tflite::micro::GetTensorShape(input),
           tflite::micro::GetTensorData<int8_t>(input),
           tflite::micro::GetTensorShape(filter),
           tflite::micro::GetTensorData<int8_t>(filter),
@@ -274,7 +281,7 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
     }
     case kTfLiteUInt8: {
       //EvalQuantized
-      reference_ops::Conv(ConvParamsQuantized(params, data),
+      reference_ops::Conv(ConvParamsQuantized(params, data.op_data),
                           tflite::micro::GetTensorShape(input),
                           tflite::micro::GetTensorData<uint8_t>(input),
                           tflite::micro::GetTensorShape(filter),
