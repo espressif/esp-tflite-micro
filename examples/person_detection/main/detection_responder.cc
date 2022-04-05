@@ -22,7 +22,8 @@ static QueueHandle_t xQueueLCDFrame = NULL;
 #endif
 
 void RespondToDetection(tflite::ErrorReporter* error_reporter,
-                        int8_t person_score, int8_t no_person_score) {
+                        float person_score, float no_person_score) {
+  int person_score_int = (person_score) * 100 + 0.5;
 #if DISPLAY_SUPPORT
   if (xQueueLCDFrame == NULL) {
     xQueueLCDFrame = xQueueCreate(2, sizeof(struct lcd_frame));
@@ -30,7 +31,7 @@ void RespondToDetection(tflite::ErrorReporter* error_reporter,
   }
 
   int color = 0x1f << 6; // red
-  if (person_score < 10) { // treat score less than 10 no person
+  if (person_score_int < 60) { // treat score less than 60% as no person
     color = 0x3f; // green
   }
   app_lcd_color_for_detection(color);
@@ -43,7 +44,7 @@ void RespondToDetection(tflite::ErrorReporter* error_reporter,
   xQueueSend(xQueueLCDFrame, &frame, portMAX_DELAY);
   (void) no_person_score;
 #else
-  TF_LITE_REPORT_ERROR(error_reporter, "person score:%d no person score %d",
-                       person_score, no_person_score);
+  TF_LITE_REPORT_ERROR(error_reporter, "person score:%d%%, no person score %d%%",
+                       person_score_int, 100 - person_score_int);
 #endif
 }

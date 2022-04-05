@@ -38,7 +38,7 @@ set(lib_srcs
           "${tflite_dir}/kernels/kernel_util.cc"
           "${tflite_dir}/micro/memory_planner/greedy_memory_planner.cc"
           "${tflite_dir}/micro/memory_planner/linear_memory_planner.cc"
-          "${tflite_dir}/c/common.c"
+          "${tflite_dir}/c/common.cc"
           "${tflite_dir}/core/api/error_reporter.cc"
           "${tflite_dir}/core/api/flatbuffer_conversions.cc"
           "${tflite_dir}/core/api/op_resolver.cc"
