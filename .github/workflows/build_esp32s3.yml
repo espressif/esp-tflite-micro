@@ -10,21 +10,12 @@
 name: build_esp32s3
 
 on:
-  schedule:
-    # 1:30am UTC is 7am IST depending on daylight savings.
-    - cron: '30 13 * * *'
-
-  # Allow manually triggering of the workflow.
+  workflow_call: {}
   workflow_dispatch: {}
 
 jobs:
-  build_daily:
+  build_esp32s3:
     runs-on: ubuntu-latest
-    name: Build Examples
-
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'schedule' && github.repository == 'espressif/tflite-micro-esp-examples')
     steps:
       - uses: actions/checkout@v2
         with:
@@ -35,7 +26,7 @@ jobs:
           cd esp-idf
           ./install.sh
           cd -
-      - name: Build esp32s3
+      - name: Build ESP32-S3
         run: |
           cd esp-idf
           . export.sh
