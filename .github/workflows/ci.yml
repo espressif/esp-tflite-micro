@@ -1,0 +1,21 @@
+# YAML schema for GitHub Actions:
+# https://help.github.com/en/actions/automating-your-workflow-with-github-actions/workflow-syntax-for-github-actions
+#
+# Helpful YAML parser to clarify YAML syntax:
+# https://yaml-online-parser.appspot.com/
+#
+#
+# This file contains the workflows that are run periodically to build the examples.
+
+name: CI
+
+on: push
+
+jobs:
+  build_esp32:
+    name: Build Examples
+    uses: ./.github/workflows/build_esp32.yml
+
+  build_esp32s3:
+    name: Build Examples
+    uses: ./.github/workflows/build_esp32s3.yml
