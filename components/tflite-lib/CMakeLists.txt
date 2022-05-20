@@ -25,7 +25,8 @@ list(REMOVE_ITEM srcs_kernels
           "${tfmicro_kernels_dir}/depthwise_conv.cc"
           "${tfmicro_kernels_dir}/fully_connected.cc"
           "${tfmicro_kernels_dir}/mul.cc"
-          "${tfmicro_kernels_dir}/pooling.cc")
+          "${tfmicro_kernels_dir}/pooling.cc"
+          "${tfmicro_kernels_dir}/softmax.cc")
 
 FILE(GLOB esp_nn_kernels
           "${tfmicro_kernels_dir}/esp_nn/*.cc")
