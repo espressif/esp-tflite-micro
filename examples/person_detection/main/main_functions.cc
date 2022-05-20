@@ -46,12 +46,13 @@ TfLiteTensor* input = nullptr;
 // signed 8-bit integers is to subtract 128 from the unsigned value to get a
 // signed value.
 
-// An area of memory to use for input, output, and intermediate arrays.
-#if CONFIG_IDF_TARGET_ESP32
-constexpr int kTensorArenaSize = 135 * 1024;
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+constexpr int scratchBufSize = 39 * 1024;
 #else
-constexpr int kTensorArenaSize = 175 * 1024;
+constexpr int scratchBufSize = 0;
 #endif
+// An area of memory to use for input, output, and intermediate arrays.
+constexpr int kTensorArenaSize = 81 * 1024 + scratchBufSize;
 static uint8_t *tensor_arena;//[kTensorArenaSize]; // Maybe we should move this to external
 }  // namespace
 
