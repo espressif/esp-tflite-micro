@@ -64,17 +64,17 @@ idf.py --port /dev/ttyUSB0 flash monitor
 
 ### Performance Comparison
 
-A quick summary of ESP-NN optimisations, as measured on ESP32-S3:
+A quick summary of ESP-NN optimisations, measured on various chipsets:
 
-|   TFLite Micro Example  | without ESP-NN  | with ESP-NN |
-| ----------------------- | --------------- | ----------- |
-|   Person Detection      |     2300ms      |    54ms     |
+|   Target  |   TFLite Micro Example  | without ESP-NN  | with ESP-NN | CPU Freq  |
+| --------- | ----------------------- | --------------- | ----------- |-----------|
+| ESP32-S3  |   Person Detection      |     2300ms      |     54ms    |  240MHz   |
+| ESP32     |   Person Detection      |     4084ms      |    380ms    |  240MHz   |
+| ESP32-C3  |   Person Detection      |     3355ms      |    426ms    |  160MHz   |
 
-Details:
+Note:
   - The above is time taken for execution of the `invoke()` call
   - Internal memory used
-  - CPU freq set at 240MHz
-
 
 Detailed kernelwise performance can be found [here](https://github.com/espressif/esp-nn).
 
