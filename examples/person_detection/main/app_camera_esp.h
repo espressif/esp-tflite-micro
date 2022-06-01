@@ -20,7 +20,6 @@ limitations under the License.
 #include "esp_camera.h"
 #include "esp_log.h"
 #include "esp_system.h"
-#include "sensor.h"
 
 #include "esp_main.h"
 

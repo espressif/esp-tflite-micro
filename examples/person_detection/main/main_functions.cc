@@ -114,14 +114,17 @@ void setup() {
   // Get information about the memory area to use for the model's input.
   input = interpreter->input(0);
 
+#ifndef CLI_ONLY_INFERENCE
   // Initialize Camera
   TfLiteStatus init_status = InitCamera(error_reporter);
   if (init_status != kTfLiteOk) {
     TF_LITE_REPORT_ERROR(error_reporter, "InitCamera failed\n");
     return;
   }
+#endif
 }
 
+#ifndef CLI_ONLY_INFERENCE
 // The name of this function is important for Arduino compatibility.
 void loop() {
   // Get image from provider.
@@ -150,6 +153,7 @@ void loop() {
   RespondToDetection(error_reporter, person_score_f, no_person_score_f);
   vTaskDelay(1); // to avoid watchdog trigger
 }
+#endif
 
 #if defined(COLLECT_CPU_STATS)
   long long total_time = 0;
