@@ -115,7 +115,7 @@ static void CaptureSamples(void* arg) {
                                    (uint8_t*)i2s_read_buffer, bytes_read, 10);
       /* update the timestamp (in ms) to let the model know that new data has
        * arrived */
-      g_latest_audio_timestamp +=
+      g_latest_audio_timestamp = g_latest_audio_timestamp +
           ((1000 * (bytes_written / 2)) / kAudioSampleFrequency);
       if (bytes_written <= 0) {
         ESP_LOGE(TAG, "Could Not Write in Ring Buffer: %d ", bytes_written);
@@ -158,7 +158,7 @@ TfLiteStatus GetAudioSamples(tflite::ErrorReporter* error_reporter,
 
   /* copy 320 samples (640 bytes) from rb at ( int16_t*(g_audio_output_buffer) +
    * 160 ), first 160 samples (320 bytes) will be from history */
-  int32_t bytes_read =
+  int bytes_read =
       rb_read(g_audio_capture_buffer,
               ((uint8_t*)(g_audio_output_buffer + history_samples_to_keep)),
               new_samples_to_get * sizeof(int16_t), 10);
@@ -169,7 +169,7 @@ TfLiteStatus GetAudioSamples(tflite::ErrorReporter* error_reporter,
              rb_filled(g_audio_capture_buffer));
     ESP_LOGD(TAG, " Partial Read of Data by Model ");
     ESP_LOGV(TAG, " Could only read %d bytes when required %d bytes ",
-             bytes_read, new_samples_to_get * sizeof(int16_t));
+             bytes_read, (int) (new_samples_to_get * sizeof(int16_t)));
   }
 
   /* copy 320 bytes from output_buff into history */

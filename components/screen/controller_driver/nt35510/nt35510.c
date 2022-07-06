@@ -31,7 +31,7 @@ static const char *TAG = "lcd nt35510";
 #define LCD_NAME "NT35510"
 #define LCD_BPP  16
 
-/** 
+/**
  * NT35510 can select different resolution, but I can't find the way
  */
 #define NT35510_RESOLUTION_HOR 480
@@ -91,9 +91,9 @@ esp_err_t lcd_nt35510_init(const scr_controller_config_t *lcd_conf)
         gpio_pad_select_gpio(lcd_conf->pin_num_rst);
         gpio_set_direction(lcd_conf->pin_num_rst, GPIO_MODE_OUTPUT);
         gpio_set_level(lcd_conf->pin_num_rst, (lcd_conf->rst_active_level) & 0x1);
-        vTaskDelay(100 / portTICK_RATE_MS);
+        vTaskDelay(pdMS_TO_TICKS(100));
         gpio_set_level(lcd_conf->pin_num_rst, (~(lcd_conf->rst_active_level)) & 0x1);
-        vTaskDelay(100 / portTICK_RATE_MS);
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 
     g_lcd_handle.interface_drv = lcd_conf->interface_drv;
@@ -254,7 +254,7 @@ esp_err_t lcd_nt35510_draw_bitmap(uint16_t x, uint16_t y, uint16_t w, uint16_t h
 static void lcd_nt35510_init_reg(void)
 {
     LCD_WRITE_CMD(0x0100); // Software Reset
-    vTaskDelay(10 / portTICK_RATE_MS);
+    vTaskDelay(pdMS_TO_TICKS(10));
     LCD_WRITE_CMD(0x1200);
     LCD_WRITE_REG(0xf000, 0x0055);
     LCD_WRITE_REG(0xf001, 0x00aa);

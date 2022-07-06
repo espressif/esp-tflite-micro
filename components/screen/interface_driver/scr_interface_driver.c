@@ -36,8 +36,8 @@ typedef struct {
 
 static esp_err_t _i2s_lcd_write_data(void *handle, uint16_t data)
 {
-    interface_i2s_handle_t *interface_i2s = __containerof(handle, interface_i2s_handle_t, interface_drv);
 #ifndef CONFIG_IDF_TARGET_ESP32S3
+    interface_i2s_handle_t *interface_i2s = __containerof(handle, interface_i2s_handle_t, interface_drv);
     return i2s_lcd_write_data(interface_i2s->i2s_lcd_handle, data);
 #else
     return ESP_ERR_NOT_SUPPORTED;
@@ -46,8 +46,8 @@ static esp_err_t _i2s_lcd_write_data(void *handle, uint16_t data)
 
 static esp_err_t _i2s_lcd_write_cmd(void *handle, uint16_t cmd)
 {
-    interface_i2s_handle_t *interface_i2s = __containerof(handle, interface_i2s_handle_t, interface_drv);
 #ifndef CONFIG_IDF_TARGET_ESP32S3
+    interface_i2s_handle_t *interface_i2s = __containerof(handle, interface_i2s_handle_t, interface_drv);
     return i2s_lcd_write_cmd(interface_i2s->i2s_lcd_handle, cmd);
 #else
     return ESP_ERR_NOT_SUPPORTED;
@@ -56,8 +56,8 @@ static esp_err_t _i2s_lcd_write_cmd(void *handle, uint16_t cmd)
 
 static esp_err_t _i2s_lcd_write(void *handle, const uint8_t *data, uint32_t length)
 {
-    interface_i2s_handle_t *interface_i2s = __containerof(handle, interface_i2s_handle_t, interface_drv);
 #ifndef CONFIG_IDF_TARGET_ESP32S3
+    interface_i2s_handle_t *interface_i2s = __containerof(handle, interface_i2s_handle_t, interface_drv);
     return i2s_lcd_write(interface_i2s->i2s_lcd_handle, data, length);
 #else
     return ESP_ERR_NOT_SUPPORTED;
@@ -75,8 +75,8 @@ static esp_err_t _i2s_lcd_read(void *handle, uint8_t *data, uint32_t length)
 
 static esp_err_t _i2s_lcd_acquire(void *handle)
 {
-    interface_i2s_handle_t *interface_i2s = __containerof(handle, interface_i2s_handle_t, interface_drv);
 #ifndef CONFIG_IDF_TARGET_ESP32S3
+    interface_i2s_handle_t *interface_i2s = __containerof(handle, interface_i2s_handle_t, interface_drv);
     return i2s_lcd_acquire(interface_i2s->i2s_lcd_handle);
 #else
     return ESP_ERR_NOT_SUPPORTED;
@@ -85,8 +85,8 @@ static esp_err_t _i2s_lcd_acquire(void *handle)
 
 static esp_err_t _i2s_lcd_release(void *handle)
 {
-    interface_i2s_handle_t *interface_i2s = __containerof(handle, interface_i2s_handle_t, interface_drv);
 #ifndef CONFIG_IDF_TARGET_ESP32S3
+    interface_i2s_handle_t *interface_i2s = __containerof(handle, interface_i2s_handle_t, interface_drv);
     return i2s_lcd_release(interface_i2s->i2s_lcd_handle);
 #else
     return ESP_ERR_NOT_SUPPORTED;
@@ -399,4 +399,3 @@ esp_err_t scr_interface_delete(const scr_interface_driver_t *driver)
     }
     return ESP_OK;
 }
-

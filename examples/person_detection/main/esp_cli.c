@@ -57,11 +57,11 @@ static int task_dump_cli_handler(int argc, char *argv[])
     num_of_tasks = uxTaskGetSystemState(task_array, num_of_tasks, NULL);
     printf("\tName\tNumber\tPriority\tStackWaterMark\n");
     for (int i = 0; i < num_of_tasks; i++) {
-        printf("%16s\t%d\t%d\t%d\n",
+        printf("%16s\t%u\t%u\t%u\n",
                task_array[i].pcTaskName,
-               task_array[i].xTaskNumber,
-               task_array[i].uxCurrentPriority,
-               task_array[i].usStackHighWaterMark);
+               (unsigned) task_array[i].xTaskNumber,
+               (unsigned) task_array[i].uxCurrentPriority,
+               (unsigned) task_array[i].usStackHighWaterMark);
     }
     free(task_array);
     return 0;
@@ -115,11 +115,11 @@ static int inference_cli_handler(int argc, char *argv[])
     }
    // char file_name[30];
    // sprintf(file_name, "image%d.raw", image_number);
-    uint32_t detect_time;
+    unsigned detect_time;
     detect_time = esp_timer_get_time();
     run_inference((void *)image_database[image_number]);
     detect_time = (esp_timer_get_time() - detect_time)/1000;
-    ESP_LOGI(TAG,"Time required for the inference is %d ms", detect_time);
+    ESP_LOGI(TAG,"Time required for the inference is %u ms", detect_time);
 
     return 0;
 }
@@ -173,7 +173,7 @@ static void esp_cli_task(void *arg)
         memset(linebuf, 0, sizeof(linebuf));
         i = 0;
         do {
-            ret = xQueueReceive(uart_queue, (void * )&event, (portTickType)portMAX_DELAY);
+            ret = xQueueReceive(uart_queue, (void * )&event, portMAX_DELAY);
             if (ret != pdPASS) {
                 if(stop == 1) {
                     break;
