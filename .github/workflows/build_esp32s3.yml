@@ -34,3 +34,24 @@ jobs:
           export IDF_PATH=`pwd`/esp-idf
           echo "IDF_PATH is set to $IDF_PATH"
           ./scripts/build_examples.sh esp32s3
+
+  build_esp32s3_idf_v50:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+      - name: Clone IDF
+        run: |
+          git clone --recursive --single-branch -b release/v5.0 https://github.com/espressif/esp-idf.git
+          cd esp-idf
+          ./install.sh
+          cd -
+      - name: Build ESP32-S3
+        run: |
+          cd esp-idf
+          . export.sh
+          cd -
+          export IDF_PATH=`pwd`/esp-idf
+          echo "IDF_PATH is set to $IDF_PATH"
+          ./scripts/build_examples.sh esp32s3

@@ -20,7 +20,6 @@ before_script:
 
 .setup_idf: &setup_idf
     - cd ${CI_PROJECT_DIR}
-    # - git clone --recursive --single-branch -b release/v4.3 --reference-if-able /local_references/gitlab/ ssh://git@gitlab.espressif.cn:27227/espressif/esp-idf.git
     - echo "${IDF_BRANCH_NAME}"
     - echo ${IDF_BRANCH_NAME}
     - git clone --recursive --single-branch -b ${IDF_BRANCH_NAME} --reference-if-able /local_references/gitlab/ https://gitlab-ci-token:${BOT_TOKEN}@gitlab.espressif.cn:6688/espressif/esp-idf.git
@@ -55,13 +54,53 @@ build:gitlab:default:
     - *test_build
     - cd ${CI_PROJECT_DIR}
 
-build:gitlab:esp32s3:
+build:gitlab:esp32c3_idf_v50:
+  stage: build
+  image: tflite-micro
+  tags:
+    - build
+  variables:
+    IDF_BRANCH_NAME: "release/v5.0"
+    TARGET: "esp32c3"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: never
+    - when: always
+  script:
+    - cd ${CI_PROJECT_DIR}
+    # setup esp-idf
+    - *setup_idf
+    # build examples
+    - *test_build
+    - cd ${CI_PROJECT_DIR}
+
+build:gitlab:esp32s3_idf_v44:
   stage: build
   image: tflite-micro
   tags:
     - build
   variables:
     IDF_BRANCH_NAME: "release/v4.4"
+    TARGET: "esp32s3"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: never
+    - when: always
+  script:
+    - cd ${CI_PROJECT_DIR}
+    # setup esp-idf
+    - *setup_idf
+    # build examples
+    - *test_build
+    - cd ${CI_PROJECT_DIR}
+
+build:gitlab:esp32s3_idf_v50:
+  stage: build
+  image: tflite-micro
+  tags:
+    - build
+  variables:
+    IDF_BRANCH_NAME: "release/v5.0"
     TARGET: "esp32s3"
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
