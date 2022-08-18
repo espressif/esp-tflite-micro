@@ -18,101 +18,54 @@ before_script:
     - chmod 600 ~/.ssh/id_rsa
     - echo -e "Host gitlab.espressif.cn\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
 
-.setup_idf: &setup_idf
-    - cd ${CI_PROJECT_DIR}
-    - echo "${IDF_BRANCH_NAME}"
-    - echo ${IDF_BRANCH_NAME}
-    - git clone --recursive --single-branch -b ${IDF_BRANCH_NAME} --reference-if-able /local_references/gitlab/ https://gitlab-ci-token:${BOT_TOKEN}@gitlab.espressif.cn:6688/espressif/esp-idf.git
-    - cd esp-idf
-    - ./install.sh
-    - . export.sh
-    - cd ${CI_PROJECT_DIR}
-    - export IDF_PATH=${CI_PROJECT_DIR}/esp-idf
-    - echo "IDF_PATH is set to $IDF_PATH"
-
 .test_build: &test_build
     # Build examples
+    - for TARGET in $EXAMPLE_TARGETS; do
     - ./scripts/build_examples.sh $TARGET
+    - done
 
-build:gitlab:default:
+.build_template:
   stage: build
-  image: tflite-micro
+  image: espressif/idf:latest
   tags:
     - build
   variables:
-    IDF_BRANCH_NAME: "release/v4.3"
-    TARGET: "esp32"
+    PEDANTIC_FLAGS: "-Werror -Wno-error=cpp -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
+    EXTRA_CFLAGS: "${PEDANTIC_FLAGS}"
+    EXTRA_CXXFLAGS: "${PEDANTIC_FLAGS}"
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       when: never
     - when: always
   script:
     - cd ${CI_PROJECT_DIR}
-    # setup esp-idf
-    - *setup_idf
     # build examples
     - *test_build
     - cd ${CI_PROJECT_DIR}
 
-build:gitlab:esp32c3_idf_v50:
-  stage: build
-  image: tflite-micro
-  tags:
-    - build
+build_idf_v5.0:
+  extends: .build_template
+  image: espressif/idf:release-v5.0
   variables:
-    IDF_BRANCH_NAME: "release/v5.0"
-    TARGET: "esp32c3"
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
-      when: never
-    - when: always
-  script:
-    - cd ${CI_PROJECT_DIR}
-    # setup esp-idf
-    - *setup_idf
-    # build examples
-    - *test_build
-    - cd ${CI_PROJECT_DIR}
+    EXAMPLE_TARGETS: esp32 esp32s3 esp32c3
 
-build:gitlab:esp32s3_idf_v44:
-  stage: build
-  image: tflite-micro
-  tags:
-    - build
+build_idf_v4.4:
+  extends: .build_template
+  image: espressif/idf:release-v4.4
   variables:
-    IDF_BRANCH_NAME: "release/v4.4"
-    TARGET: "esp32s3"
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
-      when: never
-    - when: always
-  script:
-    - cd ${CI_PROJECT_DIR}
-    # setup esp-idf
-    - *setup_idf
-    # build examples
-    - *test_build
-    - cd ${CI_PROJECT_DIR}
+    EXAMPLE_TARGETS: esp32 esp32s3 esp32c3
 
-build:gitlab:esp32s3_idf_v50:
-  stage: build
-  image: tflite-micro
-  tags:
-    - build
+build_idf_v4.3:
+  extends: .build_template
+  image: espressif/idf:release-v4.3
   variables:
-    IDF_BRANCH_NAME: "release/v5.0"
-    TARGET: "esp32s3"
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
-      when: never
-    - when: always
-  script:
-    - cd ${CI_PROJECT_DIR}
-    # setup esp-idf
-    - *setup_idf
-    # build examples
-    - *test_build
-    - cd ${CI_PROJECT_DIR}
+    EXAMPLE_TARGETS: esp32
+
+build_idf_v4.2:
+  extends: .build_template
+  image: espressif/idf:release-v4.2
+  variables:
+    EXAMPLE_TARGETS: esp32
 
 .push_to_gitlab: &push_to_gitlab
     # Push updated repo (synced from github) to gitlab
@@ -135,7 +88,7 @@ build:gitlab:esp32s3_idf_v50:
 
 sync_from_github:on-schedule:
   stage: sync
-  image: tflite-micro
+  image: espressif/idf:release-v4.4
   tags:
     - sync
   rules:
@@ -151,7 +104,7 @@ sync_from_github:on-schedule:
 
 push_to_github:
   stage: deploy
-  image: tflite-micro
+  image: espressif/idf:release-v4.4
   tags:
     - deploy
   when: manual
@@ -167,4 +120,3 @@ push_to_github:
     - git remote remove github &>/dev/null || true
     - git remote add github git@github.com:espressif/tflite-micro-esp-examples.git
     - git push github "${CI_COMMIT_SHA}:refs/heads/${CI_COMMIT_REF_NAME}"
-
