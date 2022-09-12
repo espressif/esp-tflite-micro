@@ -92,6 +92,7 @@ AllOpsResolver::AllOpsResolver() {
   AddResizeNearestNeighbor();
   AddRound();
   AddRsqrt();
+  AddSelectV2();
   AddShape();
   AddSin();
   AddSlice();
@@ -111,6 +112,7 @@ AllOpsResolver::AllOpsResolver() {
   AddTanh();
   AddTranspose();
   AddTransposeConv();
+  AddUnidirectionalSequenceLSTM();
   AddUnpack();
   AddVarHandle();
   AddWhile();
