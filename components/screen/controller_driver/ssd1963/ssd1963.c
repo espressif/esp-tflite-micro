@@ -101,9 +101,9 @@ esp_err_t lcd_ssd1963_init(const scr_controller_config_t *lcd_conf)
         gpio_pad_select_gpio(lcd_conf->pin_num_rst);
         gpio_set_direction(lcd_conf->pin_num_rst, GPIO_MODE_OUTPUT);
         gpio_set_level(lcd_conf->pin_num_rst, (lcd_conf->rst_active_level) & 0x1);
-        vTaskDelay(100 / portTICK_RATE_MS);
+        vTaskDelay(pdMS_TO_TICKS(100));
         gpio_set_level(lcd_conf->pin_num_rst, (~(lcd_conf->rst_active_level)) & 0x1);
-        vTaskDelay(100 / portTICK_RATE_MS);
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 
     g_lcd_handle.interface_drv = lcd_conf->interface_drv;
@@ -323,7 +323,7 @@ static void lcd_ssd1963_init_reg(void)
     LCD_WRITE_DATA(0x03);   //16-bit(565 format) data for 16bpp
 
     LCD_WRITE_CMD(0x29);    //display on
-    
+
     LCD_WRITE_CMD(0xD0);
     LCD_WRITE_DATA(0x00);   //disable
 

@@ -29,6 +29,18 @@ extern "C" {
 #define RB_WRITER_FINISHED -2
 #define RB_READER_UNBLOCK -3
 
+#if __has_include("esp_idf_version.h")
+#include "esp_idf_version.h"
+#else
+#define ESP_IDF_VERSION_VAL(major, minor, patch) 0
+#endif
+
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0))
+#if !(configENABLE_BACKWARD_COMPATIBILITY == 1)
+#define xSemaphoreHandle SemaphoreHandle_t
+#endif
+#endif
+
 typedef struct ringbuf {
   char* name;
   uint8_t* base; /**< Original pointer */

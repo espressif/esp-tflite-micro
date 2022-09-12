@@ -90,9 +90,9 @@ esp_err_t lcd_ili9806_init(const scr_controller_config_t *lcd_conf)
         gpio_pad_select_gpio(lcd_conf->pin_num_rst);
         gpio_set_direction(lcd_conf->pin_num_rst, GPIO_MODE_OUTPUT);
         gpio_set_level(lcd_conf->pin_num_rst, (lcd_conf->rst_active_level) & 0x1);
-        vTaskDelay(100 / portTICK_RATE_MS);
+        vTaskDelay(pdMS_TO_TICKS(100));
         gpio_set_level(lcd_conf->pin_num_rst, (~(lcd_conf->rst_active_level)) & 0x1);
-        vTaskDelay(100 / portTICK_RATE_MS);
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 
     g_lcd_handle.interface_drv = lcd_conf->interface_drv;
@@ -256,7 +256,7 @@ esp_err_t lcd_ili9806_draw_bitmap(uint16_t x, uint16_t y, uint16_t w, uint16_t h
 static void lcd_ili9806_init_reg(void)
 {
     LCD_WRITE_CMD(0x01); // Software Reset
-    vTaskDelay(50 / portTICK_RATE_MS);
+    vTaskDelay(pdMS_TO_TICKS(50));
     LCD_WRITE_CMD(0xFF); // EXTC Command Set enable register
     LCD_WRITE_DATA(0xFF);
     LCD_WRITE_DATA(0x98);
@@ -433,7 +433,7 @@ static void lcd_ili9806_init_reg(void)
     LCD_WRITE_DATA(0x55);
 
     LCD_WRITE_CMD(0x11); //Exit Sleep
-    vTaskDelay(10 / portTICK_RATE_MS);
+    vTaskDelay(pdMS_TO_TICKS(10));
     LCD_WRITE_CMD(0x29); // Display On
 
     LCD_WRITE_CMD(0x36);

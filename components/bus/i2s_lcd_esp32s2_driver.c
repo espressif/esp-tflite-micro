@@ -92,7 +92,7 @@ static void lcd_dma_set_int(i2s_lcd_obj_t *i2s_lcd_obj)
         i2s_lcd_obj->dma[x].empty = (uint32_t)&i2s_lcd_obj->dma[(x + 1) % i2s_lcd_obj->dma_node_cnt];
     }
     i2s_lcd_obj->dma[i2s_lcd_obj->dma_half_node_cnt - 1].empty = (uint32_t)NULL;
-    i2s_lcd_obj->dma[i2s_lcd_obj->dma_node_cnt - 1].empty = (uint32_t)NULL; 
+    i2s_lcd_obj->dma[i2s_lcd_obj->dma_node_cnt - 1].empty = (uint32_t)NULL;
 }
 
 static void lcd_dma_set_left(i2s_lcd_obj_t *i2s_lcd_obj, int pos, size_t len)

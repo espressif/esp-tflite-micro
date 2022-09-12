@@ -55,9 +55,9 @@ ringbuf_t* rb_init(const char* name, uint32_t size) {
   r->fill_cnt = 0;
   r->size = size;
 
-  vSemaphoreCreateBinary(r->can_read);
+  r->can_read = xSemaphoreCreateBinary();
   assert(r->can_read);
-  vSemaphoreCreateBinary(r->can_write);
+  r->can_write = xSemaphoreCreateBinary();
   assert(r->can_write);
   r->lock = xSemaphoreCreateMutex();
   assert(r->lock);

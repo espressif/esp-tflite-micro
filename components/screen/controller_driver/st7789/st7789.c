@@ -90,7 +90,7 @@ static void lcd_st7789_init_reg(void)
     LCD_WRITE_CMD(0xBB);  //VCOM Setting
     LCD_WRITE_DATA(0x19);
 
-    LCD_WRITE_CMD(0xC0); //LCM Control     
+    LCD_WRITE_CMD(0xC0); //LCM Control
     LCD_WRITE_DATA(0x2C);
 
     LCD_WRITE_CMD(0xC2);  //VDV and VRH Command Enable
@@ -102,7 +102,7 @@ static void lcd_st7789_init_reg(void)
 
     LCD_WRITE_CMD(0xC6);  //Frame Rate Control in Normal Mode
     LCD_WRITE_DATA(0x0F);
-    
+
     LCD_WRITE_CMD(0xD0);  // Power Control 1
     LCD_WRITE_DATA(0xA4);
     LCD_WRITE_DATA(0xA1);
@@ -164,9 +164,9 @@ esp_err_t lcd_st7789_init(const scr_controller_config_t *lcd_conf)
         gpio_pad_select_gpio(lcd_conf->pin_num_rst);
         gpio_set_direction(lcd_conf->pin_num_rst, GPIO_MODE_OUTPUT);
         gpio_set_level(lcd_conf->pin_num_rst, (lcd_conf->rst_active_level) & 0x1);
-        vTaskDelay(100 / portTICK_RATE_MS);
+        vTaskDelay(pdMS_TO_TICKS(100));
         gpio_set_level(lcd_conf->pin_num_rst, (~(lcd_conf->rst_active_level)) & 0x1);
-        vTaskDelay(100 / portTICK_RATE_MS);
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 
     g_lcd_handle.interface_drv = lcd_conf->interface_drv;
