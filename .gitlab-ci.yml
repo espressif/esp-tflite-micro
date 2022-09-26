@@ -88,7 +88,7 @@ build_idf_v4.2:
 
 sync_from_github:on-schedule:
   stage: sync
-  image: espressif/idf:release-v4.4
+  image: tflite-micro
   tags:
     - sync
   rules:
@@ -104,7 +104,7 @@ sync_from_github:on-schedule:
 
 push_to_github:
   stage: deploy
-  image: espressif/idf:release-v4.4
+  image: tflite-micro
   tags:
     - deploy
   when: manual
