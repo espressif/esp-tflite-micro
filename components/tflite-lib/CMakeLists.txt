@@ -49,6 +49,9 @@ set(lib_srcs
           "${tflite_dir}/core/api/op_resolver.cc"
           "${tflite_dir}/core/api/tensor_utils.cc"
           "${tflite_dir}/kernels/internal/quantization_util.cc"
+          "${tflite_dir}/kernels/internal/portable_tensor_utils.cc"
+          "${tflite_dir}/kernels/internal/tensor_utils.cc"
+          "${tflite_dir}/kernels/internal/reference/portable_tensor_utils.cc"
           "${tflite_dir}/schema/schema_utils.cc")
 
 set(priv_req esp-nn)
