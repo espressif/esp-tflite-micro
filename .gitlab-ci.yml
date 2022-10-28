@@ -3,6 +3,12 @@ stages:
   - sync
   - deploy
 
+# Avoid running duplicate pipeline
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
 variables:
   GIT_STRATEGY: fetch
   GIT_SUBMODULE_STRATEGY: recursive
@@ -52,18 +58,21 @@ build_idf_v5.0:
 build_idf_v4.4:
   extends: .build_template
   image: espressif/idf:release-v4.4
+  needs: [build_idf_v5.0]
   variables:
     EXAMPLE_TARGETS: esp32 esp32s3 esp32c3
 
 build_idf_v4.3:
   extends: .build_template
   image: espressif/idf:release-v4.3
+  needs: [build_idf_v4.4]
   variables:
     EXAMPLE_TARGETS: esp32
 
 build_idf_v4.2:
   extends: .build_template
   image: espressif/idf:release-v4.2
+  needs: [build_idf_v4.3]
   variables:
     EXAMPLE_TARGETS: esp32
 
