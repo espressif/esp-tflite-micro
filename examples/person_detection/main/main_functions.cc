@@ -19,8 +19,8 @@ limitations under the License.
 #include "image_provider.h"
 #include "model_settings.h"
 #include "person_detect_model_data.h"
-#include "tensorflow/lite/micro/micro_error_reporter.h"
 #include "tensorflow/lite/micro/micro_interpreter.h"
+#include "tensorflow/lite/micro/micro_log.h"
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 
@@ -34,7 +34,6 @@ limitations under the License.
 
 // Globals, used for compatibility with Arduino-style sketches.
 namespace {
-tflite::ErrorReporter* error_reporter = nullptr;
 const tflite::Model* model = nullptr;
 tflite::MicroInterpreter* interpreter = nullptr;
 TfLiteTensor* input = nullptr;
@@ -58,20 +57,12 @@ static uint8_t *tensor_arena;//[kTensorArenaSize]; // Maybe we should move this 
 
 // The name of this function is important for Arduino compatibility.
 void setup() {
-  // Set up logging. Google style is to avoid globals or statics because of
-  // lifetime uncertainty, but since this has a trivial destructor it's okay.
-  // NOLINTNEXTLINE(runtime-global-variables)
-  static tflite::MicroErrorReporter micro_error_reporter;
-  error_reporter = &micro_error_reporter;
-
   // Map the model into a usable data structure. This doesn't involve any
   // copying or parsing, it's a very lightweight operation.
   model = tflite::GetModel(g_person_detect_model_data);
   if (model->version() != TFLITE_SCHEMA_VERSION) {
-    TF_LITE_REPORT_ERROR(error_reporter,
-                         "Model provided is schema version %d not equal "
-                         "to supported version %d.",
-                         model->version(), TFLITE_SCHEMA_VERSION);
+    MicroPrintf("Model provided is schema version %d not equal to supported "
+                "version %d.", model->version(), TFLITE_SCHEMA_VERSION);
     return;
   }
 
@@ -101,13 +92,13 @@ void setup() {
   // Build an interpreter to run the model with.
   // NOLINTNEXTLINE(runtime-global-variables)
   static tflite::MicroInterpreter static_interpreter(
-      model, micro_op_resolver, tensor_arena, kTensorArenaSize, error_reporter);
+      model, micro_op_resolver, tensor_arena, kTensorArenaSize);
   interpreter = &static_interpreter;
 
   // Allocate memory from the tensor_arena for the model's tensors.
   TfLiteStatus allocate_status = interpreter->AllocateTensors();
   if (allocate_status != kTfLiteOk) {
-    TF_LITE_REPORT_ERROR(error_reporter, "AllocateTensors() failed");
+    MicroPrintf("AllocateTensors() failed");
     return;
   }
 
@@ -116,9 +107,9 @@ void setup() {
 
 #ifndef CLI_ONLY_INFERENCE
   // Initialize Camera
-  TfLiteStatus init_status = InitCamera(error_reporter);
+  TfLiteStatus init_status = InitCamera();
   if (init_status != kTfLiteOk) {
-    TF_LITE_REPORT_ERROR(error_reporter, "InitCamera failed\n");
+    MicroPrintf("InitCamera failed\n");
     return;
   }
 #endif
@@ -128,14 +119,13 @@ void setup() {
 // The name of this function is important for Arduino compatibility.
 void loop() {
   // Get image from provider.
-  if (kTfLiteOk != GetImage(error_reporter, kNumCols, kNumRows, kNumChannels,
-                            input->data.int8)) {
-    TF_LITE_REPORT_ERROR(error_reporter, "Image capture failed.");
+  if (kTfLiteOk != GetImage(kNumCols, kNumRows, kNumChannels, input->data.int8)) {
+    MicroPrintf("Image capture failed.");
   }
 
   // Run the model on this input and make sure it succeeds.
   if (kTfLiteOk != interpreter->Invoke()) {
-    TF_LITE_REPORT_ERROR(error_reporter, "Invoke failed.");
+    MicroPrintf("Invoke failed.");
   }
 
   TfLiteTensor* output = interpreter->output(0);
@@ -150,7 +140,7 @@ void loop() {
       (no_person_score - output->params.zero_point) * output->params.scale;
 
   // Respond to detection
-  RespondToDetection(error_reporter, person_score_f, no_person_score_f);
+  RespondToDetection(person_score_f, no_person_score_f);
   vTaskDelay(1); // to avoid watchdog trigger
 }
 #endif
@@ -178,7 +168,7 @@ void run_inference(void *ptr) {
 #endif
   // Run the model on this input and make sure it succeeds.
   if (kTfLiteOk != interpreter->Invoke()) {
-    error_reporter->Report("Invoke failed.");
+    MicroPrintf("Invoke failed.");
   }
 
 #if defined(COLLECT_CPU_STATS)
@@ -213,5 +203,5 @@ void run_inference(void *ptr) {
       (person_score - output->params.zero_point) * output->params.scale;
   float no_person_score_f =
       (no_person_score - output->params.zero_point) * output->params.scale;
-  RespondToDetection(error_reporter, person_score_f, no_person_score_f);
+  RespondToDetection(person_score_f, no_person_score_f);
 }

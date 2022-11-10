@@ -127,7 +127,7 @@ static void CaptureSamples(void* arg) {
   vTaskDelete(NULL);
 }
 
-TfLiteStatus InitAudioRecording(tflite::ErrorReporter* error_reporter) {
+TfLiteStatus InitAudioRecording() {
   g_audio_capture_buffer = rb_init("tf_ringbuffer", kAudioCaptureBufferSize);
   if (!g_audio_capture_buffer) {
     ESP_LOGE(TAG, "Error creating ring buffer");
@@ -142,11 +142,10 @@ TfLiteStatus InitAudioRecording(tflite::ErrorReporter* error_reporter) {
   return kTfLiteOk;
 }
 
-TfLiteStatus GetAudioSamples(tflite::ErrorReporter* error_reporter,
-                             int start_ms, int duration_ms,
+TfLiteStatus GetAudioSamples(int start_ms, int duration_ms,
                              int* audio_samples_size, int16_t** audio_samples) {
   if (!g_is_audio_initialized) {
-    TfLiteStatus init_status = InitAudioRecording(error_reporter);
+    TfLiteStatus init_status = InitAudioRecording();
     if (init_status != kTfLiteOk) {
       return init_status;
     }

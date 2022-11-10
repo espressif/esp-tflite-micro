@@ -35,7 +35,7 @@ static const char* TAG = "app_camera";
 static uint16_t *display_buf; // buffer to hold data to be sent to display
 
 // Get the camera module ready
-TfLiteStatus InitCamera(tflite::ErrorReporter* error_reporter) {
+TfLiteStatus InitCamera() {
 #if CLI_ONLY_INFERENCE
   ESP_LOGI(TAG, "CLI_ONLY_INFERENCE enabled, skipping camera init");
   return kTfLiteOk;
@@ -53,10 +53,10 @@ TfLiteStatus InitCamera(tflite::ErrorReporter* error_reporter) {
 
   int ret = app_camera_init();
   if (ret != 0) {
-    TF_LITE_REPORT_ERROR(error_reporter, "Camera init failed\n");
+    MicroPrintf("Camera init failed\n");
     return kTfLiteError;
   }
-  TF_LITE_REPORT_ERROR(error_reporter, "Camera Initialized\n");
+  MicroPrintf("Camera Initialized\n");
   return kTfLiteOk;
 }
 
@@ -66,8 +66,7 @@ void *image_provider_get_display_buf()
 }
 
 // Get an image from the camera module
-TfLiteStatus GetImage(tflite::ErrorReporter* error_reporter, int image_width,
-                      int image_height, int channels, int8_t* image_data) {
+TfLiteStatus GetImage(int image_width, int image_height, int channels, int8_t* image_data) {
   camera_fb_t* fb = esp_camera_fb_get();
   if (!fb) {
     ESP_LOGE(TAG, "Camera capture failed");
@@ -105,7 +104,7 @@ TfLiteStatus GetImage(tflite::ErrorReporter* error_reporter, int image_width,
     }
   }
 #else
-  TF_LITE_REPORT_ERROR(error_reporter, "Image Captured\n");
+  MicroPrintf("Image Captured\n");
   // We have initialised camera to grayscale
   // Just quantize to int8_t
   for (int i = 0; i < image_width * image_height; i++) {
