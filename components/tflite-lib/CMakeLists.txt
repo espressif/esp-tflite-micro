@@ -14,6 +14,11 @@ file(GLOB srcs_micro
 file(GLOB src_micro_frontend
           "${tfmicro_frontend_dir}/*.c"
           "${tfmicro_frontend_dir}/*.cc")
+
+file(GLOB srcs_tflite_bridge
+          "${tfmicro_dir}/tflite_bridge/*.c"
+          "${tfmicro_dir}/tflite_bridge/*.cc")
+
 file(GLOB srcs_kernels
           "${tfmicro_kernels_dir}/*.c"
           "${tfmicro_kernels_dir}/*.cc")
@@ -34,6 +39,7 @@ FILE(GLOB esp_nn_kernels
 set(lib_srcs
           "${srcs_micro}"
           "${srcs_kernels}"
+          "${srcs_tflite_bridge}"
           "${esp_nn_kernels}"
           "${src_micro_frontend}"
           "${tflite_dir}/kernels/kernel_util.cc"
