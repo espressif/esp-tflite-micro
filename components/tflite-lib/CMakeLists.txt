@@ -49,7 +49,7 @@ set(lib_srcs
           "${tflite_dir}/micro/arena_allocator/persistent_arena_buffer_allocator.cc"
           "${tflite_dir}/micro/arena_allocator/recording_single_arena_buffer_allocator.cc"
           "${tflite_dir}/micro/arena_allocator/single_arena_buffer_allocator.cc"
-          "${tflite_dir}/c/common.cc"
+          "${tflite_dir}/core/c/common.cc"
           "${tflite_dir}/core/api/error_reporter.cc"
           "${tflite_dir}/core/api/flatbuffer_conversions.cc"
           "${tflite_dir}/core/api/op_resolver.cc"
