@@ -142,44 +142,11 @@ static TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
 
   TF_LITE_ENSURE(context, node->user_data != nullptr);
   NodeData* data = static_cast<NodeData*>(node->user_data);
-  // Only allocate LUTs for KTfLiteInt16 data type
-  if (input->type == kTfLiteInt16) {
-    void* raw_exp_lut = context->AllocatePersistentBuffer(
-        context, sizeof(int16_t) * kInt16LUTArraySize);
-    TF_LITE_ENSURE(context, raw_exp_lut != nullptr);
-    data->op_data.exp_lut = reinterpret_cast<int16_t*>(raw_exp_lut);
-    void* one_over_one_plus_x_lut = context->AllocatePersistentBuffer(
-        context, sizeof(int16_t) * kInt16LUTArraySize);
-    TF_LITE_ENSURE(context, one_over_one_plus_x_lut != nullptr);
-    data->op_data.one_over_one_plus_x_lut =
-        reinterpret_cast<int16_t*>(one_over_one_plus_x_lut);
-  }
-
-  if (output->type == kTfLiteInt16) {
-    TF_LITE_ENSURE(context,
-                   input->type == kTfLiteInt8 || input->type == kTfLiteInt16);
-  } else {
-    TF_LITE_ENSURE_EQ(context, input->type, output->type);
-  }
-
-  // Populate LUT if required
-  if (input->type == kTfLiteInt16) {
-    TF_LITE_ENSURE_EQ(context, output->params.zero_point, 0);
-    // exp LUT only used on negative values
-    // we consider exp(-10.0) is insignificant to accumulation
-    gen_lut<float, int16_t, int16_t>(
-        [](float value) { return std::exp(value); }, -10.0f, 0.0f, -1.0f, 1.0f,
-        data->op_data.exp_lut);
-    gen_lut<float, int16_t, int16_t>(
-        [](float value) { return 1.0f / (1.0f + value); }, 0.0f, 1.0f, -1.0f,
-        1.0f, data->op_data.one_over_one_plus_x_lut);
-    data->op_data.zero_point = output->params.zero_point;
-    data->op_data.scale = output->params.scale;
-  }
+  SoftmaxParams* op_data = static_cast<SoftmaxParams*>(&data->op_data);
 
   auto* params = static_cast<TfLiteSoftmaxParams*>(node->builtin_data);
   auto ret_val =
-      CalculateSoftmaxParams(context, input, output, params, &data->op_data);
+      CalculateSoftmaxParams(context, input, output, params, op_data);
 
 #if ESP_NN
   if (output->type == kTfLiteInt8 && input->type == kTfLiteInt8) {
