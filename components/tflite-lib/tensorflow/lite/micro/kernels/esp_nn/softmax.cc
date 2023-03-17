@@ -168,7 +168,7 @@ static TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
 
 }  // namespace
 
-TfLiteRegistration Register_SOFTMAX() {
+TfLiteRegistration_V1 Register_SOFTMAX() {
   return tflite::micro::RegisterOp(Init, Prepare, Eval);
 }
 
