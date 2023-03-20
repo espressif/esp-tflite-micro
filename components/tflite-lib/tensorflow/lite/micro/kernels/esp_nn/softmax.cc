@@ -157,6 +157,8 @@ static TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
     if (scratch_buf_size > 0) {
       TF_LITE_ENSURE_STATUS(context->RequestScratchBufferInArena(
         context, scratch_buf_size, &data->buffer_idx));
+    } else {
+      data->buffer_idx = -1;
     }
   }
 #endif
@@ -168,7 +170,7 @@ static TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
 
 }  // namespace
 
-TfLiteRegistration Register_SOFTMAX() {
+TfLiteRegistration_V1 Register_SOFTMAX() {
   return tflite::micro::RegisterOp(Init, Prepare, Eval);
 }
 
