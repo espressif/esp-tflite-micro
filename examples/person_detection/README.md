@@ -80,7 +80,7 @@ where `<image_number>` is in [0, 9].
 
 The output is person and no_person score printed on the log screen.
 
-  * To switch to camera mode just uncomment following line from [esp_main.h](main/esp_main.h):
+  * To switch to camera mode just comment out the following line from [esp_main.h](main/esp_main.h):
 
   ```
   #define CLI_ONLY_INFERENCE 1

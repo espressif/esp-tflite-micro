@@ -20,7 +20,7 @@
 
 #if !defined(CLI_ONLY_INFERENCE)
 // Enable this for display
-#define DISPLAY_SUPPORT 1
+// #define DISPLAY_SUPPORT 1
 #endif
 
 #ifdef __cplusplus

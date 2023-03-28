@@ -227,7 +227,7 @@ static void image_database_init()
     image_database[4] = (uint8_t *) image4_start;
     image_database[5] = (uint8_t *) image5_start;
     image_database[6] = (uint8_t *) image6_start;
-    image_database[7] = (uint8_t *) image8_start;
+    image_database[7] = (uint8_t *) image7_start;
     image_database[8] = (uint8_t *) image8_start;
     image_database[9] = (uint8_t *) image9_start;
 
