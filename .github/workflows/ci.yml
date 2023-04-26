@@ -15,7 +15,7 @@ jobs:
   build:
     strategy:
       matrix:
-        idf_ver: ["release-v4.2", "release-v4.3", "release-v4.4", "release-v5.0", "latest"]
+        idf_ver: ["release-v4.2", "release-v4.3", "release-v4.4", "release-v5.0"]
         idf_target: ["esp32"]
         include:
           - idf_ver: "release-v4.2"
@@ -23,11 +23,9 @@ jobs:
           - idf_ver: "release-v4.3"
             idf_target: esp32c3
           - idf_ver: "release-v4.4"
-            idf_target: esp32s3
+            idf_target: "esp32s3"
           - idf_ver: "release-v5.0"
-            idf_target: esp32s3 # esp32c2 is not added yet to avoid build issues
-          - idf_ver: "latest"
-            idf_target: esp32s3
+            idf_target: "esp32c2"
     runs-on: ubuntu-22.04
     container: espressif/idf:${{ matrix.idf_ver }}
     steps:
