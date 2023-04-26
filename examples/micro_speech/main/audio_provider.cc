@@ -35,6 +35,10 @@ limitations under the License.
 
 using namespace std;
 
+#define NO_I2S_SUPPORT CONFIG_IDF_TARGET_ESP32C2 || \
+                          (CONFIG_IDF_TARGET_ESP32C3 \
+                          && (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 4, 0)))
+
 static const char* TAG = "TF_LITE_AUDIO_PROVIDER";
 /* ringbuffer to hold the incoming audio data */
 ringbuf_t* g_audio_capture_buffer;
@@ -59,6 +63,9 @@ int16_t g_history_buffer[history_samples_to_keep];
 const int32_t kAudioCaptureBufferSize = 80000;
 const int32_t i2s_bytes_to_read = 3200;
 
+#if NO_I2S_SUPPORT
+  // nothing to be done here
+#else
 static void i2s_init(void) {
   // Start listening for audio: MONO @ 16KHz
   i2s_config_t i2s_config = {
@@ -95,8 +102,13 @@ static void i2s_init(void) {
     ESP_LOGE(TAG, "Error in initializing dma buffer with 0");
   }
 }
+#endif
 
 static void CaptureSamples(void* arg) {
+#if NO_I2S_SUPPORT
+  ESP_LOGE(TAG, "i2s support not available on C3 chip for IDF < 4.4.0");
+  return;
+#else
   size_t bytes_read = i2s_bytes_to_read;
   uint8_t i2s_read_buffer[i2s_bytes_to_read] = {};
   i2s_init();
@@ -124,6 +136,7 @@ static void CaptureSamples(void* arg) {
       }
     }
   }
+#endif
   vTaskDelete(NULL);
 }
 
@@ -137,6 +150,7 @@ TfLiteStatus InitAudioRecording() {
    * in the ring buffer */
   xTaskCreate(CaptureSamples, "CaptureSamples", 1024 * 32, NULL, 10, NULL);
   while (!g_latest_audio_timestamp) {
+    vTaskDelay(1); // one tick delay to avoid watchdog
   }
   ESP_LOGI(TAG, "Audio Recording started");
   return kTfLiteOk;

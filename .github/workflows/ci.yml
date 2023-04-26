@@ -12,10 +12,31 @@ name: CI
 on: push
 
 jobs:
-  build_esp32:
-    name: Build Examples
-    uses: ./.github/workflows/build_esp32.yml
-
-  build_esp32s3:
-    name: Build Examples
-    uses: ./.github/workflows/build_esp32s3.yml
+  build:
+    strategy:
+      matrix:
+        idf_ver: ["release-v4.2", "release-v4.3", "release-v4.4", "release-v5.0"]
+        idf_target: ["esp32"]
+        include:
+          - idf_ver: "release-v4.2"
+            idf_target: esp32s2
+          - idf_ver: "release-v4.3"
+            idf_target: esp32c3
+          - idf_ver: "release-v4.4"
+            idf_target: "esp32s3"
+          - idf_ver: "release-v5.0"
+            idf_target: "esp32c2"
+    runs-on: ubuntu-22.04
+    container: espressif/idf:${{ matrix.idf_ver }}
+    steps:
+      - uses: actions/checkout@v1
+        with:
+          submodules: recursive
+      - name: Build for ${{ matrix.idf_target }}
+        env:
+          IDF_TARGET: ${{ matrix.idf_target }}
+        shell: bash
+        working-directory: examples
+        run: |
+          . ${IDF_PATH}/export.sh
+          ../scripts/build_examples.sh ${IDF_TARGET}

@@ -88,7 +88,7 @@ if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER_EQUAL "5.0")
   target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-error=stringop-overread)
 endif()
 
- # enable ESP-NN optimizations by Espressif
+# enable ESP-NN optimizations by Espressif
 target_compile_options(${COMPONENT_LIB} PRIVATE -DESP_NN)
 
 set(common_flags -DTF_LITE_STATIC_MEMORY -DTF_LITE_DISABLE_X86_NEON -O3
@@ -102,5 +102,10 @@ target_compile_options(${COMPONENT_LIB} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:
                                       ${common_flags} -std=c++11 -fno-rtti -fno-exceptions
                                       -fno-threadsafe-statics -Werror -Wno-return-type
                                       -Wno-strict-aliasing -std=gnu++14 >)
+
+# avoid issue of compiler internal error caused in `depthwise_conv_flaot.h
+set_source_files_properties(${tfmicro_kernels_dir}/esp_nn/depthwise_conv.cc
+                            PROPERTIES COMPILE_FLAGS -O2)
+
 target_compile_options(${COMPONENT_LIB} INTERFACE -DTF_LITE_STATIC_MEMORY)
 target_link_libraries(${COMPONENT_LIB} PRIVATE -lm)
