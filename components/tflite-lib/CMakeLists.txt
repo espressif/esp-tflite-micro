@@ -54,10 +54,13 @@ set(lib_srcs
           "${tflite_dir}/core/api/flatbuffer_conversions.cc"
           "${tflite_dir}/core/api/op_resolver.cc"
           "${tflite_dir}/core/api/tensor_utils.cc"
+          "${tflite_dir}/kernels/internal/common.cc"
           "${tflite_dir}/kernels/internal/quantization_util.cc"
           "${tflite_dir}/kernels/internal/portable_tensor_utils.cc"
           "${tflite_dir}/kernels/internal/tensor_utils.cc"
+          "${tflite_dir}/kernels/internal/tensor_ctypes.cc"
           "${tflite_dir}/kernels/internal/reference/portable_tensor_utils.cc"
+          "${tflite_dir}/kernels/internal/reference/comparisons.cc"
           "${tflite_dir}/schema/schema_utils.cc")
 
 set(priv_req esp-nn)
@@ -78,6 +81,7 @@ idf_component_register(
 
 # Reduce the level of paranoia to be able to compile TF sources
 target_compile_options(${COMPONENT_LIB} PRIVATE
+  -Wno-error=attributes
   -Wno-maybe-uninitialized
   -Wno-missing-field-initializers
   -Wno-error=sign-compare
