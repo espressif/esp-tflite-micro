@@ -106,6 +106,7 @@ sync_from_github:on-schedule:
     # sync tflite-lib from github
     - cd ${CI_PROJECT_DIR}
     - echo "====================== Sync tflite-lib from Github and push to Gitlab ======================"
+    - python3 -m pip install numpy #latest script needs numpy, not available to tflite-micro. Use IDF image instead?
     - ./scripts/sync_from_tflite_micro.sh
     # push to gitlab
     - *push_to_gitlab
