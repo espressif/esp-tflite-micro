@@ -14,7 +14,7 @@ limitations under the License.
 ==============================================================================*/
 
 
-#include "tensorflow/lite/micro/all_ops_resolver.h"
+#include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
 #include "tensorflow/lite/micro/micro_interpreter.h"
 #include "tensorflow/lite/micro/system_setup.h"
 #include "tensorflow/lite/schema/schema_generated.h"
@@ -47,9 +47,11 @@ void setup() {
     return;
   }
 
-  // This pulls in all the operation implementations we need.
-  // NOLINTNEXTLINE(runtime-global-variables)
-  static tflite::AllOpsResolver resolver;
+  // Pull in only the operation implementations we need.
+  static tflite::MicroMutableOpResolver<1> resolver;
+  if (resolver.AddFullyConnected() != kTfLiteOk) {
+    return;
+  }
 
   // Build an interpreter to run the model with.
   static tflite::MicroInterpreter static_interpreter(
