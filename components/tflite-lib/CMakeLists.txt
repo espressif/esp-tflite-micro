@@ -3,6 +3,7 @@
 cmake_minimum_required(VERSION 3.5)
 
 set(tflite_dir "${CMAKE_CURRENT_SOURCE_DIR}/tensorflow/lite")
+set(signal_dir "${CMAKE_CURRENT_SOURCE_DIR}/signal")
 set(tfmicro_dir "${tflite_dir}/micro")
 set(tfmicro_frontend_dir "${tflite_dir}/experimental/microfrontend/lib")
 set(tfmicro_kernels_dir "${tfmicro_dir}/kernels")
@@ -23,6 +24,17 @@ file(GLOB srcs_kernels
           "${tfmicro_kernels_dir}/*.c"
           "${tfmicro_kernels_dir}/*.cc")
 
+set(signal_srcs
+          "${signal_dir}/micro/kernels/rfft.cc"
+          "${signal_dir}/micro/kernels/window.cc"
+          "${signal_dir}/src/kiss_fft_wrappers/kiss_fft_float.cc"
+          "${signal_dir}/src/kiss_fft_wrappers/kiss_fft_int16.cc"
+          "${signal_dir}/src/kiss_fft_wrappers/kiss_fft_int32.cc"
+          "${signal_dir}/src/rfft_float.cc"
+          "${signal_dir}/src/rfft_int16.cc"
+          "${signal_dir}/src/rfft_int32.cc"
+          "${signal_dir}/src/window.cc")
+
 # remove sources which will be provided by esp_nn
 list(REMOVE_ITEM srcs_kernels
           "${tfmicro_kernels_dir}/add.cc"
@@ -42,6 +54,7 @@ set(lib_srcs
           "${srcs_tflite_bridge}"
           "${esp_nn_kernels}"
           "${src_micro_frontend}"
+          "${signal_srcs}"
           "${tflite_dir}/kernels/kernel_util.cc"
           "${tflite_dir}/micro/memory_planner/greedy_memory_planner.cc"
           "${tflite_dir}/micro/memory_planner/linear_memory_planner.cc"
@@ -76,6 +89,9 @@ idf_component_register(
                          "third_party/flatbuffers/include"
                          "third_party/ruy"
                          "third_party/kissfft"
+                         "signal/micro/kernels"
+                         "signal/src"
+                         "signal/src/kiss_fft_wrappers"
             REQUIRES ${pub_req}
             PRIV_REQUIRES ${priv_req})
 
