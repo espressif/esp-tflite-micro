@@ -42,11 +42,15 @@ python3 tensorflow/lite/micro/tools/project_generation/create_tflm_tree.py \
 
 cd "${TFLITE_LIB_DIR}"
 rm -rf tensorflow
+rm -rf third_party
+rm -rf signal
 mv "${TEMP_DIR}/tflm-out/tensorflow" tensorflow
 
 # For this repo we are forking both the models and the examples.
 rm -rf tensorflow/lite/micro/models
 mkdir -p third_party/
 /bin/cp -r "${TEMP_DIR}"/tflm-out/third_party/* third_party/
+mkdir -p signal/
+/bin/cp -r "${TEMP_DIR}"/tflm-out/signal/* signal/
 
 rm -rf "${TEMP_DIR}"
