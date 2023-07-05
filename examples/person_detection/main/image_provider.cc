@@ -43,7 +43,7 @@ TfLiteStatus InitCamera() {
 // if display support is present, initialise display buf
 #if DISPLAY_SUPPORT
   if (display_buf == NULL) {
-    display_buf = (uint16_t *) heap_caps_malloc(96 * 2 * 96 * 2 * 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    display_buf = (uint16_t *) heap_caps_malloc(96 * 2 * 120 * 2 * 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
   }
   if (display_buf == NULL) {
     ESP_LOGE(TAG, "Couldn't allocate display buffer");

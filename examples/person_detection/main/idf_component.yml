@@ -5,4 +5,8 @@ dependencies:
 
   espressif/esp32-camera:
     version: "*"
-    override_path: "../../../components/esp32-camera"
+
+  espressif/esp32_s3_eye:
+    version: "*"
+    rules:
+      - if: "target in [esp32s3]"
