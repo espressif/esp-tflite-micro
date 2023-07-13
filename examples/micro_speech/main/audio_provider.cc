@@ -54,14 +54,18 @@ constexpr int32_t history_samples_to_keep =
 constexpr int32_t new_samples_to_get =
     (kFeatureSliceStrideMs * (kAudioSampleFrequency / 1000));
 
+const int32_t kAudioCaptureBufferSize = 80000;
+const int32_t i2s_bytes_to_read = 3200;
+
 namespace {
 int16_t g_audio_output_buffer[kMaxAudioSampleSize];
 bool g_is_audio_initialized = false;
 int16_t g_history_buffer[history_samples_to_keep];
-}  // namespace
 
-const int32_t kAudioCaptureBufferSize = 80000;
-const int32_t i2s_bytes_to_read = 3200;
+#if !NO_I2S_SUPPORT
+uint8_t g_i2s_read_buffer[i2s_bytes_to_read] = {};
+#endif
+}  // namespace
 
 #if NO_I2S_SUPPORT
   // nothing to be done here
@@ -110,11 +114,10 @@ static void CaptureSamples(void* arg) {
   return;
 #else
   size_t bytes_read = i2s_bytes_to_read;
-  uint8_t i2s_read_buffer[i2s_bytes_to_read] = {};
   i2s_init();
   while (1) {
     /* read 100ms data at once from i2s */
-    i2s_read((i2s_port_t)1, (void*)i2s_read_buffer, i2s_bytes_to_read,
+    i2s_read((i2s_port_t)1, (void*)g_i2s_read_buffer, i2s_bytes_to_read,
              &bytes_read, 10);
     if (bytes_read <= 0) {
       ESP_LOGE(TAG, "Error in I2S read : %d", bytes_read);
@@ -124,7 +127,7 @@ static void CaptureSamples(void* arg) {
       }
       /* write bytes read by i2s into ring buffer */
       int bytes_written = rb_write(g_audio_capture_buffer,
-                                   (uint8_t*)i2s_read_buffer, bytes_read, 10);
+                                   (uint8_t*)g_i2s_read_buffer, bytes_read, 10);
       /* update the timestamp (in ms) to let the model know that new data has
        * arrived */
       g_latest_audio_timestamp = g_latest_audio_timestamp +
@@ -148,7 +151,7 @@ TfLiteStatus InitAudioRecording() {
   }
   /* create CaptureSamples Task which will get the i2s_data from mic and fill it
    * in the ring buffer */
-  xTaskCreate(CaptureSamples, "CaptureSamples", 1024 * 32, NULL, 10, NULL);
+  xTaskCreate(CaptureSamples, "CaptureSamples", 1024 * 4, NULL, 10, NULL);
   while (!g_latest_audio_timestamp) {
     vTaskDelay(1); // one tick delay to avoid watchdog
   }

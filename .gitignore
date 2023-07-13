@@ -7,3 +7,5 @@ sdkconfig.old
 .DS_Store
 *.orig
 *.swp
+*.out
+*.lock
