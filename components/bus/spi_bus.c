@@ -1,4 +1,4 @@
-// Copyright 2020-2021 Espressif Systems (Shanghai) PTE LTD
+// Copyright 2020-2023 Espressif Systems (Shanghai) PTE LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include <stdio.h>
+#include <inttypes.h>
 #include <string.h>
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -35,7 +37,7 @@ typedef struct {
 
 static const char *TAG = "spi_bus";
 static _spi_bus_t s_spi_bus[2];
-#define ESP_SPI_MUTEX_TICKS_TO_WAIT ((int) 2)
+#define ESP_SPI_MUTEX_TICKS_TO_WAIT 2
 
 #define SPI_BUS_CHECK(a, str, ret)  if(!(a)) {                                      \
         ESP_LOGE(TAG,"%s:%d (%s):%s", __FILE__, __LINE__, __FUNCTION__, str);   \
@@ -48,12 +50,12 @@ static _spi_bus_t s_spi_bus[2];
     }
 
 #define SPI_DEVICE_MUTEX_TAKE(p_spi_dev, ret) if (!xSemaphoreTake((p_spi_dev)->mutex, ESP_SPI_MUTEX_TICKS_TO_WAIT)) { \
-        ESP_LOGE(TAG, "spi device(%d) take mutex timeout, max wait = %d ticks", (int)((p_spi_dev)->handle), ESP_SPI_MUTEX_TICKS_TO_WAIT); \
+        ESP_LOGE(TAG, "spi device(%"PRId32") take mutex timeout, max wait = %d ticks", (int32_t)((p_spi_dev)->handle), ESP_SPI_MUTEX_TICKS_TO_WAIT); \
         return (ret); \
     }
 
 #define SPI_DEVICE_MUTEX_GIVE(p_spi_dev, ret) if (!xSemaphoreGive((p_spi_dev)->mutex)) { \
-        ESP_LOGE(TAG, "spi device(%d) give mutex failed", (int)((p_spi_dev)->handle)); \
+        ESP_LOGE(TAG, "spi device(%"PRId32") give mutex failed", (int32_t)((p_spi_dev)->handle)); \
         return (ret); \
     }
 
@@ -105,7 +107,7 @@ esp_err_t spi_bus_delete(spi_bus_handle_t *p_bus_handle)
     return ESP_OK;
 }
 
-spi_bus_device_handle_t spi_bus_device_create(spi_bus_device_handle_t bus_handle, const spi_device_config_t *device_conf)
+spi_bus_device_handle_t spi_bus_device_create(spi_bus_handle_t bus_handle, const spi_device_config_t *device_conf)
 {
     SPI_BUS_CHECK(NULL != bus_handle, "Pointer error", NULL);
     _spi_bus_t *spi_bus = (_spi_bus_t *)bus_handle;
@@ -146,7 +148,7 @@ esp_err_t spi_bus_device_delete(spi_bus_device_handle_t *p_dev_handle)
     SPI_DEVICE_MUTEX_GIVE(spi_dev, ESP_FAIL);
     SPI_BUS_CHECK(ESP_OK == ret, "spi bus delete device failed", ret);
     vSemaphoreDelete(spi_dev->mutex);
-    ESP_LOGI(TAG, "SPI%d device removed, CS=%d", (int) (spi_bus->host_id + 1), (int) spi_dev->conf.spics_io_num);
+    ESP_LOGI(TAG, "SPI%d device removed, CS=%d", spi_bus->host_id + 1, spi_dev->conf.spics_io_num);
     free(spi_dev);
     *p_dev_handle = NULL;
     return ESP_OK;
@@ -184,35 +186,9 @@ esp_err_t spi_bus_transfer_byte(spi_bus_device_handle_t dev_handle, uint8_t data
     return ESP_OK;
 }
 
-#ifndef MIN
-#define MIN(a,b) (((a)<(b))?(a):(b))
-#endif
-
 esp_err_t spi_bus_transfer_bytes(spi_bus_device_handle_t dev_handle, const uint8_t *data_out, uint8_t *data_in, uint32_t data_len)
 {
     esp_err_t ret;
-#if 1
-    uint32_t remain = data_len;
-    while (remain > 0) {
-        uint32_t chunk_len = MIN(remain, 2048);
-        spi_transaction_t trans = {
-            .length = chunk_len * 8,
-            .tx_buffer = NULL,
-            .rx_buffer = NULL
-        };
-
-        if (data_out) {
-            trans.tx_buffer = data_out+(data_len-remain);
-        }
-
-        if (data_in) {
-            trans.rx_buffer = data_in+(data_len-remain);
-        }
-        ret = _spi_device_polling_transmit(dev_handle, &trans);
-        SPI_BUS_CHECK(ret == ESP_OK, "spi transfer bytes failed", ret);
-        remain -= chunk_len;
-    }
-#else
     spi_transaction_t trans = {
         .length = data_len * 8,
         .tx_buffer = NULL,
@@ -229,8 +205,6 @@ esp_err_t spi_bus_transfer_bytes(spi_bus_device_handle_t dev_handle, const uint8
 
     ret = _spi_device_polling_transmit(dev_handle, &trans);
     SPI_BUS_CHECK(ret == ESP_OK, "spi transfer bytes failed", ret);
-
-#endif
 
     return ESP_OK;
 }

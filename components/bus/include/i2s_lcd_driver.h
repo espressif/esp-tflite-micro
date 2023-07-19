@@ -27,6 +27,7 @@
 #define gpio_matrix_in(a,b,c) esp_rom_gpio_connect_in_signal(a,b,c)
 #define gpio_matrix_out(a,b,c,d) esp_rom_gpio_connect_out_signal(a,b,c,d)
 #define ets_delay_us(a) esp_rom_delay_us(a)
+#define portTICK_RATE_MS portTICK_PERIOD_MS
 #endif
 
 #ifdef __cplusplus
