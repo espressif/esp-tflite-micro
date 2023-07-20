@@ -49,9 +49,16 @@ before_script:
     - *test_build
     - cd ${CI_PROJECT_DIR}
 
+build_idf_v5.1:
+  extends: .build_template
+  image: espressif/idf:release-v5.1
+  variables:
+    EXAMPLE_TARGETS: esp32 esp32s2 esp32s3 esp32c3 esp32c2
+
 build_idf_v5.0:
   extends: .build_template
   image: espressif/idf:release-v5.0
+  needs: [build_idf_v5.1]
   variables:
     EXAMPLE_TARGETS: esp32 esp32s3 esp32c3 esp32c2
 

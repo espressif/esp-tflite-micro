@@ -1,4 +1,4 @@
-// Copyright 2015-2020 Espressif Systems (Shanghai) PTE LTD
+// Copyright 2015-2023 Espressif Systems (Shanghai) PTE LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,18 +16,24 @@
 #if CONFIG_IDF_TARGET_ESP32S2
 
 #include <stdio.h>
+#include <inttypes.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "esp_log.h"
 #include "driver/gpio.h"
+#include "esp32s2/rom/gpio.h"
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0))
+#include "esp_private/periph_ctrl.h"
+#endif
+#include "soc/gpio_periph.h"
+#include "soc/i2s_struct.h"
 #include "driver/i2s.h"
 #include "esp_heap_caps.h"
 #include "esp32s2/rom/lldesc.h"
 #include "soc/system_reg.h"
 #include "i2s_lcd_driver.h"
-
 
 static const char *TAG = "ESP32S2_I2S_LCD";
 
@@ -274,7 +280,7 @@ static esp_err_t lcd_dma_config(i2s_lcd_obj_t *i2s_lcd_obj, uint32_t max_dma_buf
     i2s_lcd_obj->dma_node_cnt = (i2s_lcd_obj->dma_buffer_size) / i2s_lcd_obj->dma_node_buffer_size; // Number of DMA nodes
     i2s_lcd_obj->dma_half_node_cnt = i2s_lcd_obj->dma_node_cnt / 2;
 
-    ESP_LOGI(TAG, "lcd_buffer_size: %d, lcd_dma_size: %d, lcd_dma_node_cnt: %d", i2s_lcd_obj->dma_buffer_size, i2s_lcd_obj->dma_node_buffer_size, i2s_lcd_obj->dma_node_cnt);
+    ESP_LOGI(TAG, "lcd_buffer_size: %"PRIu32", lcd_dma_size: %"PRIu32", lcd_dma_node_cnt: %"PRIu32"", i2s_lcd_obj->dma_buffer_size, i2s_lcd_obj->dma_node_buffer_size, i2s_lcd_obj->dma_node_cnt);
 
     i2s_lcd_obj->dma    = (lldesc_t *)heap_caps_malloc(i2s_lcd_obj->dma_node_cnt * sizeof(lldesc_t), MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
     i2s_lcd_obj->dma_buffer = (uint8_t *)heap_caps_malloc(i2s_lcd_obj->dma_buffer_size * sizeof(uint8_t), MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
@@ -435,6 +441,16 @@ esp_err_t i2s_lcd_write_cmd(i2s_lcd_handle_t handle, uint16_t cmd)
     I2S_CHECK(NULL != i2s_lcd_drv, "handle pointer invalid", ESP_ERR_INVALID_ARG);
     gpio_set_level(i2s_lcd_drv->rs_io_num, LCD_CMD_LEV);
     i2s_write_data(i2s_lcd_drv->i2s_lcd_obj, (uint8_t *)&cmd, i2s_lcd_drv->i2s_lcd_obj->width == 16 ? 2 : 1);
+    gpio_set_level(i2s_lcd_drv->rs_io_num, LCD_DATA_LEV);
+    return ESP_OK;
+}
+
+esp_err_t i2s_lcd_write_command(i2s_lcd_handle_t handle, const uint8_t *cmd, uint32_t length)
+{
+    i2s_lcd_driver_t *i2s_lcd_drv = (i2s_lcd_driver_t *)handle;
+    I2S_CHECK(NULL != i2s_lcd_drv, "handle pointer invalid", ESP_ERR_INVALID_ARG);
+    gpio_set_level(i2s_lcd_drv->rs_io_num, LCD_CMD_LEV);
+    i2s_write_data(i2s_lcd_drv->i2s_lcd_obj, (uint8_t *)cmd, length);
     gpio_set_level(i2s_lcd_drv->rs_io_num, LCD_DATA_LEV);
     return ESP_OK;
 }
