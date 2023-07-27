@@ -1,0 +1,3 @@
+# Python requirements for sync_from_github
+image
+numpy
