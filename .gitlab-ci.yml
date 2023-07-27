@@ -104,7 +104,7 @@ build_idf_v4.2:
 
 sync_from_github:on-schedule:
   stage: sync
-  image: tflite-micro
+  image: espressif/idf:release-v5.0
   tags:
     - sync
   rules:
@@ -113,7 +113,7 @@ sync_from_github:on-schedule:
     # sync tflite-lib from github
     - cd ${CI_PROJECT_DIR}
     - echo "====================== Sync tflite-lib from Github and push to Gitlab ======================"
-    - python3 -m pip install numpy #latest script needs numpy, not available to tflite-micro. Use IDF image instead?
+    - python3 -m pip install -r scripts/gh_sync_req.txt
     - ./scripts/sync_from_tflite_micro.sh
     # push to gitlab
     - *push_to_gitlab
@@ -121,7 +121,7 @@ sync_from_github:on-schedule:
 
 push_to_github:
   stage: deploy
-  image: tflite-micro
+  image: espressif/idf:release-v5.0
   tags:
     - deploy
   when: manual
