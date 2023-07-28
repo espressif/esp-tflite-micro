@@ -15,6 +15,7 @@ limitations under the License.
 #ifndef TENSORFLOW_LITE_MICRO_KERNELS_MICRO_OPS_H_
 #define TENSORFLOW_LITE_MICRO_KERNELS_MICRO_OPS_H_
 
+#include "signal/micro/kernels/irfft.h"
 #include "signal/micro/kernels/rfft.h"
 #include "tensorflow/lite/c/common.h"
 
@@ -100,8 +101,10 @@ TFLMRegistration Register_READ_VARIABLE();
 TFLMRegistration Register_REDUCE_MAX();
 TFLMRegistration Register_RELU();
 TFLMRegistration Register_RELU6();
+TFLMRegistration Register_RESHAPE();
 TFLMRegistration Register_RESIZE_BILINEAR();
 TFLMRegistration Register_RESIZE_NEAREST_NEIGHBOR();
+TFLMRegistration Register_ROUND();
 TFLMRegistration Register_RSQRT();
 TFLMRegistration Register_SELECT_V2();
 TFLMRegistration Register_SHAPE();
@@ -132,15 +135,19 @@ TFLMRegistration Register_ZEROS_LIKE();
 
 // TODO(b/160234179): Change custom OPs to also return by value.
 namespace tflm_signal {
+TFLMRegistration* Register_DELAY();
+TFLMRegistration* Register_FFT_AUTO_SCALE();
+TFLMRegistration* Register_FILTER_BANK();
+TFLMRegistration* Register_FILTER_BANK_LOG();
+TFLMRegistration* Register_FILTER_BANK_SPECTRAL_SUBTRACTION();
+TFLMRegistration* Register_FILTER_BANK_SQUARE_ROOT();
+TFLMRegistration* Register_ENERGY();
+TFLMRegistration* Register_FRAMER();
+TFLMRegistration* Register_OVERLAP_ADD();
+TFLMRegistration* Register_STACKER();
 TFLMRegistration* Register_WINDOW();
 }  // namespace tflm_signal
 
-namespace ops {
-namespace micro {
-TFLMRegistration Register_RESHAPE();
-TFLMRegistration Register_ROUND();
-}  // namespace micro
-}  // namespace ops
 }  // namespace tflite
 
 #endif  // TENSORFLOW_LITE_MICRO_KERNELS_MICRO_OPS_H_
