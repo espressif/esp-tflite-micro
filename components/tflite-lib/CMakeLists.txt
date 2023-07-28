@@ -65,7 +65,6 @@ set(lib_srcs
           "${tflite_dir}/core/c/common.cc"
           "${tflite_dir}/core/api/error_reporter.cc"
           "${tflite_dir}/core/api/flatbuffer_conversions.cc"
-          "${tflite_dir}/core/api/op_resolver.cc"
           "${tflite_dir}/core/api/tensor_utils.cc"
           "${tflite_dir}/kernels/internal/common.cc"
           "${tflite_dir}/kernels/internal/quantization_util.cc"
