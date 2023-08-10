@@ -75,7 +75,7 @@ set(lib_srcs
           "${tflite_dir}/kernels/internal/reference/comparisons.cc"
           "${tflite_dir}/schema/schema_utils.cc")
 
-set(priv_req esp-nn)
+set(priv_req)
 
 # include component requirements which were introduced after IDF version 4.1
 if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER "4.1")

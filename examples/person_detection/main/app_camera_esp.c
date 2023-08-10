@@ -18,6 +18,7 @@ limitations under the License.
 static const char *TAG = "app_camera";
 
 int app_camera_init() {
+#if ESP_CAMERA_SUPPORTED
 #if CONFIG_CAMERA_MODULE_ESP_EYE || CONFIG_CAMERA_MODULE_ESP32_CAM_BOARD
   /* IO13, IO14 is designed for JTAG by default,
    * to use it as generalized input,
@@ -74,4 +75,8 @@ int app_camera_init() {
       s->set_saturation(s, -2); //lower the saturation
   }
   return 0;
+#else
+  ESP_LOGE(TAG, "Camera is not supported for this device!");
+  return -1;
+#endif
 }

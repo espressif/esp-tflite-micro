@@ -13,19 +13,56 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
+/*
+ * SPDX-FileCopyrightText: 2019-2023 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include "detection_responder.h"
 #include "tensorflow/lite/micro/micro_log.h"
 
 #include "esp_main.h"
 #if DISPLAY_SUPPORT
 #include "image_provider.h"
-#include "esp_lcd.h"
-static QueueHandle_t xQueueLCDFrame = NULL;
+#include <bsp/esp-bsp.h>
+// #include "esp_lcd.h"
+// static QueueHandle_t xQueueLCDFrame = NULL;
+
+static lv_obj_t *camera_canvas = NULL;
+#define IMG_WD (96 * 2)
+#define IMG_HT (120 * 2)
 #endif
 
 void RespondToDetection(float person_score, float no_person_score) {
   int person_score_int = (person_score) * 100 + 0.5;
+  (void) no_person_score; // unused
 #if DISPLAY_SUPPORT
+#if 1 // USE LVGL
+    // Create LVGL canvas for camera image
+    if (!camera_canvas) {
+      bsp_display_start();
+      bsp_display_backlight_on(); // Set display brightness to 100%
+      bsp_display_lock(0);
+      camera_canvas = lv_canvas_create(lv_scr_act());
+      assert(camera_canvas);
+      lv_obj_center(camera_canvas);
+      bsp_display_unlock();
+    }
+
+    uint16_t *buf = (uint16_t *) image_provider_get_display_buf();
+
+    int color = 0x1f << 6; // red
+    if (person_score_int < 60) { // treat score less than 60% as no person
+      color = 0x3f; // green
+    }
+    for (int i = 192 * 192; i < 192 * 240; i++) {
+        buf[i] = color;
+    }
+    bsp_display_lock(0);
+    lv_canvas_set_buffer(camera_canvas, buf, IMG_WD, IMG_HT, LV_IMG_CF_TRUE_COLOR);
+    bsp_display_unlock();
+#else
   if (xQueueLCDFrame == NULL) {
     xQueueLCDFrame = xQueueCreate(2, sizeof(struct lcd_frame));
     register_lcd(xQueueLCDFrame, NULL, false);
@@ -43,9 +80,8 @@ void RespondToDetection(float person_score, float no_person_score) {
   frame->height = 96 * 2;
   frame->buf = image_provider_get_display_buf();
   xQueueSend(xQueueLCDFrame, &frame, portMAX_DELAY);
-  (void) no_person_score;
-#else
+#endif
+#endif
   MicroPrintf("person score:%d%%, no person score %d%%",
               person_score_int, 100 - person_score_int);
-#endif
 }

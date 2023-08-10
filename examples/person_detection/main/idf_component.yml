@@ -1,0 +1,12 @@
+dependencies:
+  espressif/esp-tflite-micro:
+    version: "*"
+    override_path: "../../../components/esp-tflite-micro"
+
+  espressif/esp32-camera:
+    version: "*"
+
+  espressif/esp32_s3_eye:
+    version: "*"
+    rules:
+      - if: "target in [esp32s3]"
