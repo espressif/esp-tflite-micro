@@ -51,12 +51,16 @@ TfLiteStatus InitCamera() {
   }
 #endif
 
+#if ESP_CAMERA_SUPPORTED
   int ret = app_camera_init();
   if (ret != 0) {
     MicroPrintf("Camera init failed\n");
     return kTfLiteError;
   }
   MicroPrintf("Camera Initialized\n");
+#else
+  ESP_LOGE(TAG, "Camera not supported for this device");
+#endif
   return kTfLiteOk;
 }
 
@@ -67,6 +71,7 @@ void *image_provider_get_display_buf()
 
 // Get an image from the camera module
 TfLiteStatus GetImage(int image_width, int image_height, int channels, int8_t* image_data) {
+#if ESP_CAMERA_SUPPORTED
   camera_fb_t* fb = esp_camera_fb_get();
   if (!fb) {
     ESP_LOGE(TAG, "Camera capture failed");
@@ -115,4 +120,7 @@ TfLiteStatus GetImage(int image_width, int image_height, int channels, int8_t* i
   esp_camera_fb_return(fb);
   /* here the esp camera can give you grayscale image directly */
   return kTfLiteOk;
+#else
+  return kTfLiteError;
+#endif
 }
