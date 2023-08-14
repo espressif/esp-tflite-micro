@@ -12,8 +12,8 @@ workflow:
 variables:
   GIT_STRATEGY: fetch
   GIT_SUBMODULE_STRATEGY: recursive
-  SYNC_BRANCH_NAME: "ci/sync_gh_tflite-lib"
-  SYNC_COMMIT_MSG: "tflite-lib-sync: Update tflite-lib (synced from github)"
+  SYNC_BRANCH_NAME: "ci/sync_gh_tflite-micro"
+  SYNC_COMMIT_MSG: "tflite-micro-sync: Update esp-tflite-micro (synced from github)"
   REPO_URL: "https://${PUSH_TO_GITLAB_TOKEN_NAME}:${PUSH_TO_GITLAB_TOKEN}@gitlab.espressif.cn:6688/app-frameworks/tflite-micro-esp-examples.git"
 
 before_script:
@@ -92,14 +92,14 @@ build_idf_v4.2:
     - git ls-remote --exit-code --heads ${REPO_URL} ${SYNC_BRANCH_NAME} && echo "ERROR - ${SYNC_BRANCH_NAME} branch already exists. Is there any open MR ?" && exit 1
     - git branch ${SYNC_BRANCH_NAME} 2>&1 || echo "Branch exists" && git branch -D ${SYNC_BRANCH_NAME} 2>&1 || echo "Branch deleted" && git branch ${SYNC_BRANCH_NAME} 2>&1 && echo "Branch created"
     - git checkout ${SYNC_BRANCH_NAME}
-    - git add components/tflite-lib
+    - git add components/esp-tflite-micro
     - git commit -m "${SYNC_COMMIT_MSG}"
     - git push --set-upstream origin ${SYNC_BRANCH_NAME}
     - git status
     - git log -2
     # The variable ${SYNC_BRANCH_NAME} is not getting set here (currently), so branch name is directly added for `source_branch` key
     - curl --request POST --url "https://gitlab.espressif.cn:6688/api/v4/projects/2457/merge_requests" --header
-      "PRIVATE-TOKEN:${PUSH_TO_GITLAB_TOKEN}" --header "content-type:application/json" --data '{"title":"Update tflite-lib (synced from github) - '${CI_PIPELINE_ID}'", "source_branch":"ci/sync_gh_tflite-lib", "target_branch":"master" }'
+      "PRIVATE-TOKEN:${PUSH_TO_GITLAB_TOKEN}" --header "content-type:application/json" --data '{"title":"Sync esp-tflite-micro from github - '${CI_PIPELINE_ID}'", "source_branch":"ci/sync_gh_tflite-micro", "target_branch":"master" }'
     - git checkout -
 
 sync_from_github:on-schedule:
@@ -112,7 +112,7 @@ sync_from_github:on-schedule:
   script:
     # sync tflite-lib from github
     - cd ${CI_PROJECT_DIR}
-    - echo "====================== Sync tflite-lib from Github and push to Gitlab ======================"
+    - echo "====================== Sync esp-tflite-micro from Github and push to Gitlab ======================"
     - python3 -m pip install -r scripts/gh_sync_req.txt
     - ./scripts/sync_from_tflite_micro.sh
     # push to gitlab
