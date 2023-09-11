@@ -97,6 +97,7 @@ idf_component_register(
 # Reduce the level of paranoia to be able to compile TF sources
 target_compile_options(${COMPONENT_LIB} PRIVATE
   -Wno-error=attributes
+  -Wno-error=shadow
   -Wno-maybe-uninitialized
   -Wno-missing-field-initializers
   -Wno-error=sign-compare
