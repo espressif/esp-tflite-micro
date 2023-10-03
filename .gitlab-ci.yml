@@ -1,4 +1,5 @@
 stages:
+  - pre-check
   - build
   - sync
   - deploy
@@ -15,6 +16,28 @@ variables:
   SYNC_BRANCH_NAME: "ci/sync_gh_tflite-micro"
   SYNC_COMMIT_MSG: "tflite-micro-sync: Update esp-tflite-micro (synced from github)"
   REPO_URL: "https://${PUSH_TO_GITLAB_TOKEN_NAME}:${PUSH_TO_GITLAB_TOKEN}@gitlab.espressif.cn:6688/app-frameworks/tflite-micro-esp-examples.git"
+
+pre-commit-mr:
+  stage: pre-check
+  image: "$CI_DOCKER_REGISTRY/pre-commit-codecheck:1"
+  before_script:
+    - echo "Skip common before script"
+  script:
+    - git diff-tree --no-commit-id --name-only -r $CI_COMMIT_SHA | xargs pre-commit run --files
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  tags: [build]
+
+include:
+  - project: espressif/shared-ci-dangerjs
+    ref: master
+    file: danger.yaml
+run-danger-mr-linter:
+  before_script:
+    - echo "Skip common before script"
+  stage: pre-check
+  tags: [build]
 
 before_script:
     - mkdir -p ~/.ssh
