@@ -27,7 +27,7 @@ pre-commit-mr:
   rules:
     - if: '$CI_COMMIT_BRANCH == "master"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-  tags: [build]
+  tags: [build, internet]
 
 include:
   - project: espressif/shared-ci-dangerjs
@@ -37,7 +37,7 @@ run-danger-mr-linter:
   before_script:
     - echo "Skip common before script"
   stage: pre-check
-  tags: [build]
+  tags: [build, internet]
 
 before_script:
     - mkdir -p ~/.ssh
@@ -81,28 +81,24 @@ build_idf_v5.1:
 build_idf_v5.0:
   extends: .build_template
   image: espressif/idf:release-v5.0
-  needs: [build_idf_v5.1]
   variables:
     EXAMPLE_TARGETS: esp32 esp32s3 esp32c3 esp32c2
 
 build_idf_v4.4:
   extends: .build_template
   image: espressif/idf:release-v4.4
-  needs: [build_idf_v5.0]
   variables:
     EXAMPLE_TARGETS: esp32 esp32s3 esp32c3
 
 build_idf_v4.3:
   extends: .build_template
   image: espressif/idf:release-v4.3
-  needs: [build_idf_v4.4]
   variables:
     EXAMPLE_TARGETS: esp32
 
 build_idf_v4.2:
   extends: .build_template
   image: espressif/idf:release-v4.2
-  needs: [build_idf_v4.3]
   variables:
     EXAMPLE_TARGETS: esp32
 
