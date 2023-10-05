@@ -10,11 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
-
       - name: Upload esp-tflite-micro
         uses: espressif/upload-components-ci-action@v1
         with:
-          directories: "components/esp-tflite-micro"
           namespace: "espressif"
+          name: "esp-tflite-micro"
           version: ${{ github.ref_name }}
           api_token: ${{ secrets.IDF_COMPONENT_API_TOKEN }}

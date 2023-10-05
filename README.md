@@ -1,6 +1,8 @@
 # TensorFlow Lite Micro for Espressif Chipsets
 
-- As per TFLite Micro guidelines for vendor support, this repository has the examples needed to use Tensorflow Lite Micro on Espressif Chipsets (e.g., ESP32) using ESP-IDF platform.
+[![Component Registry](https://components.espressif.com/components/espressif/esp-tflite-micro/badge.svg)](https://components.espressif.com/components/espressif/esp-tflite-micro)
+
+- As per TFLite Micro guidelines for vendor support, this repository has the `esp-tflite-micro` component and the examples needed to use Tensorflow Lite Micro on Espressif Chipsets (e.g., ESP32) using ESP-IDF platform.
 - The base repo on which this is based can be found [here.](https://github.com/tensorflow/tflite-micro)
 
 ## Build Status
@@ -22,38 +24,58 @@ The next steps assume that this installation is successful and the
 * the `IDF_PATH` environment variable is set
 * the `idf.py` and Xtensa-esp32 tools (e.g., `xtensa-esp32-elf-gcc`) are in `$PATH`
 
-## Build the example
+## Using the component
 
-Go to example directory (`examples/<example_name>`) and build the example.
+Run the following command in your ESP-IDF project to install this component:
 
-Set the IDF_TARGET (For ESP32-S3 target, IDF version `release/v4.4` is needed)
-
+```bash
+idf.py add-dependency "esp-tflite-micro"
 ```
+
+## Building the example
+
+To get the example, run the following command:
+
+```bash
+idf.py create-project-from-example "esp-tflite-micro:<example_name>"
+```
+
+Note:
+  - If you have cloned the repo, the examples come as the part of the clone. Simply go to the example directory (`examples/<example_name>`) and build the example.
+
+Available examples are:
+ - hello_world
+ - micro_speech
+ - person_detection
+
+Set the IDF_TARGET (For ESP32-S3 target, minimum IDF version `release/v4.4` is needed)
+
+```bash
 idf.py set-target esp32s3
 ```
 
-To build this, run:
+To build the example, run:
 
-```
+```bash
 idf.py build
 ```
 
 ### Load and run the example
 
 To flash (replace `/dev/ttyUSB0` with the device serial port):
-```
+```bash
 idf.py --port /dev/ttyUSB0 flash
 ```
 
 Monitor the serial output:
-```
+```bash
 idf.py --port /dev/ttyUSB0 monitor
 ```
 
 Use `Ctrl+]` to exit.
 
 The previous two commands can be combined:
-```
+```bash
 idf.py --port /dev/ttyUSB0 flash monitor
 ```
 
@@ -89,6 +111,6 @@ As per the upstream repository policy, the tflite-lib is copied into the compone
 
 ## License
 
-These examples are covered under Apache2 License.
+This component and the examples are provided under Apache 2.0 license, see [LICENSE](LICENSE.md) file for details.
 
 TensorFlow library code and third_party code contains their own license specified under respective [repos](https://github.com/tensorflow/tflite-micro).
