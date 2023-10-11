@@ -1,4 +1,4 @@
 dependencies:
   espressif/esp-tflite-micro:
     version: "*"
-    override_path: "../../../components/esp-tflite-micro"
+    override_path: "../../../"

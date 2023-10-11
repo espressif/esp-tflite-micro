@@ -21,7 +21,7 @@ set -e -x
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="${SCRIPT_DIR}/.."
-TFLITE_LIB_DIR="${ROOT_DIR}/components/esp-tflite-micro/"
+TFLITE_LIB_DIR="${ROOT_DIR}/"
 cd "${TFLITE_LIB_DIR}"
 
 TEMP_DIR=$(mktemp -d)
