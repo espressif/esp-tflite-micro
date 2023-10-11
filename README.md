@@ -9,7 +9,7 @@
 
 |   Build Type  |  Status    |
 | -----------   |  --------- |
-| Examples Build | [![CI](https://github.com/espressif/tflite-micro-esp-examples/actions/workflows/ci.yml/badge.svg)](https://github.com/espressif/tflite-micro-esp-examples/actions/workflows/ci.yml)
+| Examples Build | [![CI](https://github.com/espressif/esp-tflite-micro/actions/workflows/ci.yml/badge.svg)](https://github.com/espressif/esp-tflite-micro/actions/workflows/ci.yml)
 
 ## How to Install
 
