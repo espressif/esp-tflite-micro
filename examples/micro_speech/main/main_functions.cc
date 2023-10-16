@@ -1,4 +1,4 @@
-/* Copyright 2020 The TensorFlow Authors. All Rights Reserved.
+/* Copyright 2020-2023 The TensorFlow Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,6 +13,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
+#include <algorithm>
+#include <cstdint>
+#include <iterator>
+
 #include "main_functions.h"
 
 #include "audio_provider.h"
@@ -21,11 +25,12 @@ limitations under the License.
 #include "micro_model_settings.h"
 #include "model.h"
 #include "recognize_commands.h"
+#include "tensorflow/lite/micro/system_setup.h"
+#include "tensorflow/lite/schema/schema_generated.h"
+#include "tensorflow/lite/core/c/common.h"
 #include "tensorflow/lite/micro/micro_interpreter.h"
 #include "tensorflow/lite/micro/micro_log.h"
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
-#include "tensorflow/lite/micro/system_setup.h"
-#include "tensorflow/lite/schema/schema_generated.h"
 
 // Globals, used for compatibility with Arduino-style sketches.
 namespace {
@@ -94,12 +99,12 @@ void setup() {
   model_input = interpreter->input(0);
   if ((model_input->dims->size != 2) || (model_input->dims->data[0] != 1) ||
       (model_input->dims->data[1] !=
-       (kFeatureSliceCount * kFeatureSliceSize)) ||
+       (kFeatureCount * kFeatureSize)) ||
       (model_input->type != kTfLiteInt8)) {
     MicroPrintf("Bad input tensor parameters in model");
     return;
   }
-  model_input_buffer = model_input->data.int8;
+  model_input_buffer = tflite::GetTensorData<int8_t>(model_input);
 
   // Prepare to access the audio spectrograms from a microphone or other source
   // that will provide the inputs to the neural network.
@@ -146,9 +151,29 @@ void loop() {
 
   // Obtain a pointer to the output tensor
   TfLiteTensor* output = interpreter->output(0);
+#if 1 // using simple argmax instead of recognizer
+  float output_scale = output->params.scale;
+  int output_zero_point = output->params.zero_point;
+  int max_idx = 0;
+  float max_result = 0.0;
+  // Dequantize output values and find the max
+  for (int i = 0; i < kCategoryCount; i++) {
+    float current_result =
+        (tflite::GetTensorData<int8_t>(output)[i] - output_zero_point) *
+        output_scale;
+    if (current_result > max_result) {
+      max_result = current_result; // update max result
+      max_idx = i; // update category
+    }
+  }
+  if (max_result > 0.8f) {
+    MicroPrintf("Detected %7s, score: %.2f", kCategoryLabels[max_idx],
+        static_cast<double>(max_result));
+  }
+#else
   // Determine whether a command was recognized based on the output of inference
   const char* found_command = nullptr;
-  uint8_t score = 0;
+  float score = 0;
   bool is_new_command = false;
   TfLiteStatus process_status = recognizer->ProcessLatestResults(
       output, current_time, &found_command, &score, &is_new_command);
@@ -160,4 +185,5 @@ void loop() {
   // just prints to the error console, but you should replace this with your
   // own function for a real application.
   RespondToCommand(current_time, found_command, score, is_new_command);
+#endif
 }

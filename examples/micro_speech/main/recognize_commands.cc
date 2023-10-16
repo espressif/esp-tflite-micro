@@ -18,7 +18,7 @@ limitations under the License.
 #include <limits>
 
 RecognizeCommands::RecognizeCommands(int32_t average_window_duration_ms,
-                                     uint8_t detection_threshold,
+                                     float detection_threshold,
                                      int32_t suppression_ms,
                                      int32_t minimum_count)
     : average_window_duration_ms_(average_window_duration_ms),
@@ -32,7 +32,7 @@ RecognizeCommands::RecognizeCommands(int32_t average_window_duration_ms,
 
 TfLiteStatus RecognizeCommands::ProcessLatestResults(
     const TfLiteTensor* latest_results, const int32_t current_time_ms,
-    const char** found_command, uint8_t* score, bool* is_new_command) {
+    const char** found_command, float* score, bool* is_new_command) {
   if ((latest_results->dims->size != 2) ||
       (latest_results->dims->data[0] != 1) ||
       (latest_results->dims->data[1] != kCategoryCount)) {
@@ -84,16 +84,21 @@ TfLiteStatus RecognizeCommands::ProcessLatestResults(
   }
 
   // Calculate the average score across all the results in the window.
-  int32_t average_scores[kCategoryCount];
+  float average_scores[kCategoryCount];
+
+  float output_scale = latest_results->params.scale;
+  int output_zero_point = latest_results->params.zero_point;
+
   for (int offset = 0; offset < previous_results_.size(); ++offset) {
     PreviousResultsQueue::Result previous_result =
         previous_results_.from_front(offset);
     const int8_t* scores = previous_result.scores;
     for (int i = 0; i < kCategoryCount; ++i) {
+      float current_score = (scores[i] - output_zero_point) * output_scale;
       if (offset == 0) {
-        average_scores[i] = scores[i] + 128;
+        average_scores[i] = current_score;
       } else {
-        average_scores[i] += scores[i] + 128;
+        average_scores[i] += current_score;
       }
     }
   }
@@ -103,7 +108,7 @@ TfLiteStatus RecognizeCommands::ProcessLatestResults(
 
   // Find the current highest scoring category.
   int current_top_index = 0;
-  int32_t current_top_score = 0;
+  float current_top_score = 0;
   for (int i = 0; i < kCategoryCount; ++i) {
     if (average_scores[i] > current_top_score) {
       current_top_score = average_scores[i];

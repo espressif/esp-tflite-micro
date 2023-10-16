@@ -125,20 +125,20 @@ class RecognizeCommands {
   // further recognitions for a set time after one has been triggered, which can
   // help reduce spurious recognitions.
   explicit RecognizeCommands(int32_t average_window_duration_ms = 1000,
-                             uint8_t detection_threshold = 200,
+                             float detection_threshold = .8,
                              int32_t suppression_ms = 1500,
                              int32_t minimum_count = 3);
 
   // Call this with the results of running a model on sample data.
   TfLiteStatus ProcessLatestResults(const TfLiteTensor* latest_results,
                                     const int32_t current_time_ms,
-                                    const char** found_command, uint8_t* score,
+                                    const char** found_command, float* score,
                                     bool* is_new_command);
 
  private:
   // Configuration
   int32_t average_window_duration_ms_;
-  uint8_t detection_threshold_;
+  float detection_threshold_;
   int32_t suppression_ms_;
   int32_t minimum_count_;
 
