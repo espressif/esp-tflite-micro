@@ -111,7 +111,7 @@ build_idf_v4.2:
     - git ls-remote --exit-code --heads ${REPO_URL} ${SYNC_BRANCH_NAME} && echo "ERROR - ${SYNC_BRANCH_NAME} branch already exists. Is there any open MR ?" && exit 1
     - git branch ${SYNC_BRANCH_NAME} 2>&1 || echo "Branch exists" && git branch -D ${SYNC_BRANCH_NAME} 2>&1 || echo "Branch deleted" && git branch ${SYNC_BRANCH_NAME} 2>&1 && echo "Branch created"
     - git checkout ${SYNC_BRANCH_NAME}
-    - git add components/esp-tflite-micro
+    - git add .
     - git commit -m "${SYNC_COMMIT_MSG}"
     - git push --set-upstream origin ${SYNC_BRANCH_NAME}
     - git status
