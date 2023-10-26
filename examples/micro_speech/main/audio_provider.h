@@ -31,6 +31,8 @@ limitations under the License.
 TfLiteStatus GetAudioSamples(int start_ms, int duration_ms,
                              int* audio_samples_size, int16_t** audio_samples);
 
+TfLiteStatus GetAudioSamples1(int* audio_samples_size, int16_t** audio_samples);
+
 // Returns the time that audio data was last captured in milliseconds. There's
 // no contract about what time zero represents, the accuracy, or the granularity
 // of the result. Subsequent calls will generally not return a lower value, but

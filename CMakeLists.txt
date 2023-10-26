@@ -24,16 +24,20 @@ file(GLOB srcs_kernels
           "${tfmicro_kernels_dir}/*.c"
           "${tfmicro_kernels_dir}/*.cc")
 
+file(GLOB signal_micro_kernels
+          "${signal_dir}/micro/kernels/*.c"
+          "${signal_dir}/micro/kernels/*.cc")
+
+file(GLOB signal_src
+          "${signal_dir}/src/*.c"
+          "${signal_dir}/src/*.cc")
+
 set(signal_srcs
-          "${signal_dir}/micro/kernels/rfft.cc"
-          "${signal_dir}/micro/kernels/window.cc"
+          "${signal_micro_kernels}"
+          "${signal_src}"
           "${signal_dir}/src/kiss_fft_wrappers/kiss_fft_float.cc"
           "${signal_dir}/src/kiss_fft_wrappers/kiss_fft_int16.cc"
-          "${signal_dir}/src/kiss_fft_wrappers/kiss_fft_int32.cc"
-          "${signal_dir}/src/rfft_float.cc"
-          "${signal_dir}/src/rfft_int16.cc"
-          "${signal_dir}/src/rfft_int32.cc"
-          "${signal_dir}/src/window.cc")
+          "${signal_dir}/src/kiss_fft_wrappers/kiss_fft_int32.cc")
 
 # remove sources which will be provided by esp_nn
 list(REMOVE_ITEM srcs_kernels
