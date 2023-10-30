@@ -28,8 +28,7 @@ limitations under the License.
 void tf_main(void) {
   setup();
 #if CLI_ONLY_INFERENCE
-  esp_cli_init();
-  esp_cli_register_cmds();
+  esp_cli_start();
   vTaskDelay(portMAX_DELAY);
 #else
   while (true) {

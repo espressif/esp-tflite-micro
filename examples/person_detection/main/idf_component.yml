@@ -3,9 +3,7 @@ dependencies:
     version: "*"
     override_path: "../../../"
 
-  espressif/esp32-camera:
-    version: "2.0.5"
-  espressif/esp_lvgl_port: "*"
+  espressif/esp32-camera: "~2.0.5"
 
   espressif/esp32_s3_eye:
     version: "3.*"
