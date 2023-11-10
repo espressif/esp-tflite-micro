@@ -15,6 +15,9 @@ The sample has been tested on ESP-IDF version `release/v4.2` and `release/v4.4` 
 - [ESP32-DevKitC](http://esp-idf.readthedocs.io/en/latest/get-started/get-started-devkitc.html)
 - [ESP32-S3-DevKitC](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/hw-reference/esp32s3/user-guide-devkitc-1.html)
 - [ESP-EYE](https://github.com/espressif/esp-who/blob/master/docs/en/get-started/ESP-EYE_Getting_Started_Guide.md)
+- [ESP32-S3-EYE](https://github.com/espressif/esp-bsp/tree/master/bsp/esp32_s3_eye)
+- [ESP32-S3-Korvo-2](https://github.com/espressif/esp-bsp/tree/master/bsp/esp32_s3_korvo_2)
+- [ESP32-S2-Kaluga](https://github.com/espressif/esp-bsp/tree/master/bsp/esp32_s2_kaluga_kit) (limited performance on ESP32-S2: ~1-2 FPS)
 
 ### Install the ESP IDF
 
@@ -30,8 +33,7 @@ The next steps assume that the
 
 ### Dependencies
 
-This example requires an external component `esp32-camera` which is the submodule of the example.
-If you have not cloned current repo with `--recursive` option, please use `git submodule update` to get it cloned.
+This example requires an external component [esp32-camera](https://components.espressif.com/components/espressif/esp32-camera) and optionally on selected Board Support Package. All these components are distributed via [IDF Component Manager](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/tools/idf-component-manager.html).
 
 ### Building the example
 
@@ -48,53 +50,35 @@ idf.py build
 
 ### Load and run the example
 
-To flash (replace `/dev/ttyUSB0` with the device serial port):
-```
-idf.py --port /dev/ttyUSB0 flash
-```
-
-Monitor the serial output:
-```
-idf.py --port /dev/ttyUSB0 monitor
-```
-
-Use `Ctrl+]` to exit.
-
-The previous two commands can be combined:
+To flash and monitor (replace `/dev/ttyUSB0` with the device serial port):
 ```
 idf.py --port /dev/ttyUSB0 flash monitor
 ```
 
+Use `Ctrl+]` to exit.
+
+### Using Display
+
+If your development board has a display, input from the camera can be shown on it.
+This feature is enabled by specific [Board Support Package](https://github.com/espressif/esp-bsp).
+
+Select your development board BSP in menuconfig: `Application Configuration -> Select BSP`.
+
 ### Using CLI for inferencing
 
 Not all dev boards come with camera and you may wish to do inferencing on static images.
-This example hence, by default uses static inferencing.
 There are 10 [images](static_images/sample_images/README.md) embedded into the application.
 
-  * To run an inferencing you need to type follwing on `idf.py monitor` window:
-
-```
-detect_image <image_number>
-```
-where `<image_number>` is in [0, 9].
-
-The output is person and no_person score printed on the log screen.
-
-  * To switch to camera mode just comment out the following line from [esp_main.h](main/esp_main.h):
+  * To switch to CLI mode just define the following line in [esp_main.h](main/esp_main.h):
 
   ```
   #define CLI_ONLY_INFERENCE 1
   ```
 
-### Using Display
+  * To run an inferencing you need to type following on `idf.py monitor` window:
 
-If you want to use display or your dev board supports it. (ESP-S3-EYE), you can enable it by disabling `CLI_ONLY_INFERENCE` and enabling following macro from `esp_main.h`
 ```
-#define DISPLAY_SUPPORT 1
+detect_image <image_number>
 ```
-
-You will need to select appropriate drivers via menuconfig:
-
-`idf.py menuconfig` > `Component Config` > `LCD drivers`
-
-  * When display is enabled, you will see camera feed and `green` color strip. The strip color will change to `red` when a person is detected.
+where `<image_number>` is in [0, 9]. 
+The output is person and no_person score printed on the log screen.

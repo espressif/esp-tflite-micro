@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "sdkconfig.h"
+
 // Enable this to do inference on embedded images
 // #define CLI_ONLY_INFERENCE 1
 
@@ -19,8 +21,10 @@
 #define COLLECT_CPU_STATS 1
 
 #if !defined(CLI_ONLY_INFERENCE)
-// support added only for S3-EYE or boards with exact display config
-// #define DISPLAY_SUPPORT 1 // uncomment to enable display support
+// Enable display support if BSP is enabled in menuconfig
+#if (CONFIG_TFLITE_USE_BSP)
+#define DISPLAY_SUPPORT 1
+#endif
 #endif
 
 #ifdef __cplusplus

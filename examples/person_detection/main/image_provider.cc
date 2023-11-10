@@ -43,13 +43,15 @@ TfLiteStatus InitCamera() {
 // if display support is present, initialise display buf
 #if DISPLAY_SUPPORT
   if (display_buf == NULL) {
-    display_buf = (uint16_t *) heap_caps_malloc(96 * 2 * 120 * 2 * 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    // Size of display_buf:
+    // Frame 96x96 from camera is extrapolated to 192x192. RGB565 pixel format -> 2 bytes per pixel
+    display_buf = (uint16_t *) heap_caps_malloc(96 * 2 * 96 * 2 * sizeof(uint16_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
   }
   if (display_buf == NULL) {
     ESP_LOGE(TAG, "Couldn't allocate display buffer");
     return kTfLiteError;
   }
-#endif
+#endif // DISPLAY_SUPPORT
 
 #if ESP_CAMERA_SUPPORTED
   int ret = app_camera_init();
@@ -108,14 +110,14 @@ TfLiteStatus GetImage(int image_width, int image_height, int channels, int8_t* i
       display_buf[(2 * i + 1) * kNumCols * 2 + 2 * j + 1] = pixel;
     }
   }
-#else
+#else // DISPLAY_SUPPORT
   MicroPrintf("Image Captured\n");
   // We have initialised camera to grayscale
   // Just quantize to int8_t
   for (int i = 0; i < image_width * image_height; i++) {
     image_data[i] = ((uint8_t *) fb->buf)[i] ^ 0x80;
   }
-#endif
+#endif // DISPLAY_SUPPORT
 
   esp_camera_fb_return(fb);
   /* here the esp camera can give you grayscale image directly */

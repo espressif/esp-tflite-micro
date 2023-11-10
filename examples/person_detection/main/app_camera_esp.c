@@ -14,6 +14,11 @@ limitations under the License.
 ==============================================================================*/
 
 #include "app_camera_esp.h"
+#include "sdkconfig.h"
+
+#if (CONFIG_TFLITE_USE_BSP)
+#include "bsp/esp-bsp.h"
+#endif
 
 static const char *TAG = "app_camera";
 
@@ -32,8 +37,13 @@ int app_camera_init() {
   gpio_config(&conf);
   conf.pin_bit_mask = 1LL << 14;
   gpio_config(&conf);
-#endif
+#endif // CONFIG_CAMERA_MODULE_ESP_EYE || CONFIG_CAMERA_MODULE_ESP32_CAM_BOARD
 
+#if (CONFIG_TFLITE_USE_BSP)
+  bsp_i2c_init();
+  camera_config_t config = BSP_CAMERA_DEFAULT_CONFIG;
+
+#else // CONFIG_TFLITE_USE_BSP
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
@@ -54,11 +64,17 @@ int app_camera_init() {
   config.pin_pwdn = CAMERA_PIN_PWDN;
   config.pin_reset = CAMERA_PIN_RESET;
   config.xclk_freq_hz = XCLK_FREQ_HZ;
-  config.pixel_format = CAMERA_PIXEL_FORMAT;
-  config.frame_size = CAMERA_FRAME_SIZE;
   config.jpeg_quality = 10;
   config.fb_count = 2;
   config.fb_location = CAMERA_FB_IN_PSRAM;
+#endif // CONFIG_TFLITE_USE_BSP
+
+  // Pixel format and frame size are specific configurations options for this application.
+  // Frame size must be 96x96 pixels to match the trained model.
+  // Pixel format defaults to grayscale to match the trained model.
+  // With display support enabled, the pixel format is RGB565 to match the display. The frame is converted to grayscale before it is passed to the trained model.
+  config.pixel_format = CAMERA_PIXEL_FORMAT;
+  config.frame_size = CAMERA_FRAME_SIZE;
 
   // camera init
   esp_err_t err = esp_camera_init(&config);
@@ -75,8 +91,8 @@ int app_camera_init() {
       s->set_saturation(s, -2); //lower the saturation
   }
   return 0;
-#else
+#else // ESP_CAMERA_SUPPORTED
   ESP_LOGE(TAG, "Camera is not supported for this device!");
   return -1;
-#endif
+#endif // ESP_CAMERA_SUPPORTED
 }

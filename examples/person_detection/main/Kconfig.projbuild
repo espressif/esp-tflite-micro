@@ -1,6 +1,32 @@
 menu  "Application Configuration"
-menu "Camera Configuration"
 
+config TFLITE_USE_BSP
+    bool
+    default n
+
+choice BSP_SUPPORT
+    bool "Select BSP"
+    default TFLITE_USE_BSP_NONE
+    help
+       Select Board Support Package for your Board.
+       Make sure you select the correct target with idf.py set-target
+       BEFORE you set the BSP.
+
+    config TFLITE_USE_BSP_S3_EYE
+        bool "ESP32-S3-EYE"
+        select TFLITE_USE_BSP
+    config TFLITE_USE_BSP_KORVO_2
+        bool "ESP32-S3-KORVO-2"
+        select TFLITE_USE_BSP
+    config TFLITE_USE_BSP_KALUGA
+        bool "ESP32-S2-KALUGA-KIT"
+        select TFLITE_USE_BSP
+    config TFLITE_USE_BSP_NONE
+        bool "None"
+endchoice
+
+menu "Camera Configuration"
+depends on !TFLITE_USE_BSP
 choice CAMERA_MODULE
     bool "Select Camera Pinout"
     default CAMERA_MODULE_WROVER_KIT
@@ -156,7 +182,4 @@ config CAMERA_PIN_Y9
         Select Camera Y9 pin.
 endmenu
 
-menu "Display support"
-
-endmenu
 endmenu

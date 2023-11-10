@@ -18,8 +18,7 @@
 extern "C" {
 #endif
 
-int esp_cli_init();
-int esp_cli_register_cmds();
+int esp_cli_start();
 
 #ifdef __cplusplus
 }
