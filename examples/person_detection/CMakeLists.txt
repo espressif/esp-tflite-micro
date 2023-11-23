@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-set(COMPONENTS main)
+
 set(EXTRA_COMPONENT_DIRS static_images)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
