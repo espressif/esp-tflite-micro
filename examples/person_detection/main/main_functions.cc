@@ -46,7 +46,7 @@ TfLiteTensor* input = nullptr;
 // signed value.
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
-constexpr int scratchBufSize = 39 * 1024;
+constexpr int scratchBufSize = 40 * 1024;
 #else
 constexpr int scratchBufSize = 0;
 #endif
