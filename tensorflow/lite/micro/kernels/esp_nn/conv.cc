@@ -58,15 +58,21 @@ static TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
 
   MicroContext* micro_context = GetMicroContext(context);
 
+  TfLiteTensor* output =
+      micro_context->AllocateTempOutputTensor(node, kConvOutputTensor);
+  TF_LITE_ENSURE(context, output != nullptr);
   TfLiteTensor* input =
       micro_context->AllocateTempInputTensor(node, kConvInputTensor);
   TF_LITE_ENSURE(context, input != nullptr);
   TfLiteTensor* filter =
       micro_context->AllocateTempInputTensor(node, kConvWeightsTensor);
   TF_LITE_ENSURE(context, filter != nullptr);
-  TfLiteTensor* output =
-      micro_context->AllocateTempOutputTensor(node, kConvOutputTensor);
-  TF_LITE_ENSURE(context, output != nullptr);
+
+  // Check input channels matching filter
+  const int input_channels = input->dims->data[3];
+  const int filter_input_channels = filter->dims->data[3];
+  TF_LITE_ENSURE(context, filter_input_channels > 0);
+  TF_LITE_ENSURE_EQ(context, input_channels % filter_input_channels, 0);
 
   TF_LITE_ENSURE_EQ(context, input->type, output->type);
   TF_LITE_ENSURE_MSG(
@@ -77,23 +83,12 @@ static TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
            (filter->type == kTfLiteInt4 || filter->type == kTfLiteInt8)),
       "Hybrid models are not supported on TFLite Micro.");
 
-  // Check dimensionality of input, filter, output
-  TF_LITE_ENSURE_EQ(context, input->dims->size, 4);
-  TF_LITE_ENSURE_EQ(context, filter->dims->size, 4);
-  TF_LITE_ENSURE_EQ(context, output->dims->size, 4);
-
-  // Check input channels matching filter
-  const int input_channels = input->dims->data[3];
-  const int filter_input_channels = filter->dims->data[3];
-  TF_LITE_ENSURE(context, filter_input_channels > 0);
-  TF_LITE_ENSURE_EQ(context, input_channels % filter_input_channels, 0);
-
   const int input_width = input->dims->data[2];
   const int input_height = input->dims->data[1];
   const int filter_width = filter->dims->data[2];
   const int filter_height = filter->dims->data[1];
-  int output_width = 0;
-  int output_height = 0;
+  const int output_width = output->dims->data[2];
+  const int output_height = output->dims->data[1];
 
   // Dynamically allocate per-channel quantization parameters.
   const int num_channels = filter->dims->data[kConvQuantizedDimension];
@@ -123,11 +118,7 @@ static TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
 
   TF_LITE_ENSURE_STATUS(CalculateOpDataConv(
       context, node, params, input_width, input_height, filter_width,
-      filter_height, &output_width, &output_height, input->type, &data->op_data));
-
-  // compute output tensor shape and relocate shape data
-  TF_LITE_ENSURE_STATUS(ConvReshapeOutputTensor(
-      context, node, input, filter, output, output_height, output_width));
+      filter_height, output_width, output_height, input->type, &data->op_data));
 
   if (filter->type == kTfLiteInt4) {
     int filter_size =
