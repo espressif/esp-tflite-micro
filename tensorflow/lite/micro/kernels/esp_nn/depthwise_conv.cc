@@ -196,8 +196,8 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
   const int input_height = input->dims->data[1];
   const int filter_width = filter->dims->data[2];
   const int filter_height = filter->dims->data[1];
-  int output_width = 0;
-  int output_height = 0;
+  const int output_width = output->dims->data[2];
+  const int output_height = output->dims->data[1];
 
   // Dynamically allocate per-channel quantization parameters.
   const int num_channels = filter->dims->data[kDepthwiseConvQuantizedDimension];
@@ -247,11 +247,7 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
 
   TF_LITE_ENSURE_STATUS(CalculateOpDataDepthwiseConv(
       context, node, params, input_width, input_height, filter_width,
-      filter_height, &output_width, &output_height, input->type, &data->op_data));
-
-  // compute output tensor shape and relocate shape data
-  TF_LITE_ENSURE_STATUS(DepthwiseConvReshapeOutputTensor(
-      context, node, input, filter, output, output_height, output_width));
+      filter_height, output_width, output_height, input->type, &data->op_data));
 
 #if ESP_NN
   if (input->type == kTfLiteInt8) {
