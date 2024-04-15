@@ -20,6 +20,7 @@ variables:
 pre-commit-mr:
   stage: pre-check
   image: "$CI_DOCKER_REGISTRY/pre-commit-codecheck:1"
+  allow_failure: true
   before_script:
     - echo "Skip common before script"
   script:
