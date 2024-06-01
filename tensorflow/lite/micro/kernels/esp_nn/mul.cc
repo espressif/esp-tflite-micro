@@ -101,6 +101,7 @@ TfLiteStatus MulEval(TfLiteContext* context, TfLiteNode* node) {
       EvalMulQuantizedReference(context, node, data, input1, input2, output);
 #endif
       break;
+    case kTfLiteInt16:
     case kTfLiteInt32:
       EvalMulQuantizedReference(context, node, data, input1, input2, output);
       break;
