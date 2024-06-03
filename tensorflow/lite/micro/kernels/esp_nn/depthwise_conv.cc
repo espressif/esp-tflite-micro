@@ -42,7 +42,8 @@ struct NodeData {
 #endif
 };
 
-void* Init(TfLiteContext* context, const char* buffer, size_t length) {
+void* Init(TfLiteContext* context, const char* buffer,
+                        size_t length) {
   TFLITE_DCHECK(context->AllocatePersistentBuffer != nullptr);
   return context->AllocatePersistentBuffer(context, sizeof(NodeData));
 }
@@ -166,15 +167,15 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
 
   MicroContext* micro_context = GetMicroContext(context);
 
+  TfLiteTensor* output =
+      micro_context->AllocateTempOutputTensor(node, kDepthwiseConvOutputTensor);
+  TF_LITE_ENSURE(context, output != nullptr);
   TfLiteTensor* input =
       micro_context->AllocateTempInputTensor(node, kDepthwiseConvInputTensor);
   TF_LITE_ENSURE(context, input != nullptr);
   TfLiteTensor* filter =
       micro_context->AllocateTempInputTensor(node, kDepthwiseConvWeightsTensor);
   TF_LITE_ENSURE(context, filter != nullptr);
-  TfLiteTensor* output =
-      micro_context->AllocateTempOutputTensor(node, kDepthwiseConvOutputTensor);
-  TF_LITE_ENSURE(context, output != nullptr);
 
   // Check dimensionality of input, filter, output
   TF_LITE_ENSURE_EQ(context, input->dims->size, 4);
@@ -410,7 +411,8 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
 }  // namespace
 
 TFLMRegistration Register_DEPTHWISE_CONV_2D() {
-  return tflite::micro::RegisterOp(Init, Prepare, Eval);
+  return tflite::micro::RegisterOp(Init, Prepare,
+                                   Eval);
 }
 
 }  // namespace tflite
