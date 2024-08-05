@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 3.5)
 
 set(tflite_dir "${CMAKE_CURRENT_SOURCE_DIR}/tensorflow/lite")
 set(signal_dir "${CMAKE_CURRENT_SOURCE_DIR}/signal")
+set(compiler_mlir_dir "${CMAKE_CURRENT_SOURCE_DIR}/tensorflow/compiler/mlir/")
 set(tfmicro_dir "${tflite_dir}/micro")
 set(tfmicro_frontend_dir "${tflite_dir}/experimental/microfrontend/lib")
 set(tfmicro_kernels_dir "${tfmicro_dir}/kernels")
@@ -77,7 +78,7 @@ set(lib_srcs
           "${tflite_dir}/kernels/internal/tensor_ctypes.cc"
           "${tflite_dir}/kernels/internal/reference/portable_tensor_utils.cc"
           "${tflite_dir}/kernels/internal/reference/comparisons.cc"
-          "${tflite_dir}/schema/schema_utils.cc")
+          "${compiler_mlir_dir}/lite/schema/schema_utils.cc")
 
 set(priv_req)
 
