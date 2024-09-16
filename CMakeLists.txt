@@ -9,9 +9,24 @@ set(tfmicro_dir "${tflite_dir}/micro")
 set(tfmicro_frontend_dir "${tflite_dir}/experimental/microfrontend/lib")
 set(tfmicro_kernels_dir "${tfmicro_dir}/kernels")
 
-file(GLOB srcs_micro
-          "${tfmicro_dir}/*.cc"
-          "${tfmicro_dir}/*.c")
+set(srcs_micro
+          "${tfmicro_dir}/debug_log.cc"
+          "${tfmicro_dir}/flatbuffer_utils.cc"
+          "${tfmicro_dir}/memory_helpers.cc"
+          "${tfmicro_dir}/micro_allocation_info.cc"
+          "${tfmicro_dir}/micro_allocator.cc"
+          "${tfmicro_dir}/micro_context.cc"
+          "${tfmicro_dir}/micro_interpreter_context.cc"
+          "${tfmicro_dir}/micro_interpreter_graph.cc"
+          "${tfmicro_dir}/micro_interpreter.cc"
+          "${tfmicro_dir}/micro_log.cc"
+          "${tfmicro_dir}/micro_op_resolver.cc"
+          "${tfmicro_dir}/micro_profiler.cc"
+          "${tfmicro_dir}/micro_resource_variable.cc"
+          "${tfmicro_dir}/micro_time.cc"
+          "${tfmicro_dir}/micro_utils.cc"
+          "${tfmicro_dir}/recording_micro_allocator.cc"
+          "${tfmicro_dir}/system_setup.cc")
 
 file(GLOB src_micro_frontend
           "${tfmicro_frontend_dir}/*.c"
