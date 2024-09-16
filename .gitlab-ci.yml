@@ -104,18 +104,6 @@ build_idf_v4.4:
   variables:
     EXAMPLE_TARGETS: esp32 esp32s3 esp32c3
 
-build_idf_v4.3:
-  extends: .build_template
-  image: espressif/idf:release-v4.3
-  variables:
-    EXAMPLE_TARGETS: esp32
-
-build_idf_v4.2:
-  extends: .build_template
-  image: espressif/idf:release-v4.2
-  variables:
-    EXAMPLE_TARGETS: esp32
-
 .push_to_gitlab: &push_to_gitlab
     # Push updated repo (synced from github) to gitlab
     - git config --global user.email "vikram.dattu@espressif.com"
@@ -137,9 +125,9 @@ build_idf_v4.2:
 
 sync_from_github:on-schedule:
   stage: sync
-  image: espressif/idf:release-v5.0
+  image: espressif/idf:release-v5.2
   tags:
-    - sync
+    - github_sync
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == "master"'
   script:
