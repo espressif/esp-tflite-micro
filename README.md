@@ -2,7 +2,7 @@
 
 [![Component Registry](https://components.espressif.com/components/espressif/esp-tflite-micro/badge.svg)](https://components.espressif.com/components/espressif/esp-tflite-micro)
 
-- As per TFLite Micro guidelines for vendor support, this repository has the `esp-tflite-micro` component and the examples needed to use Tensorflow Lite Micro on Espressif Chipsets (e.g., ESP32) using ESP-IDF platform.
+- As per TFLite Micro guidelines for vendor support, this repository has the `esp-tflite-micro` component and the examples needed to use Tensorflow Lite Micro on Espressif Chipsets (e.g., ESP32-P4) using ESP-IDF platform.
 - The base repo on which this is based can be found [here.](https://github.com/tensorflow/tflite-micro)
 
 ## Build Status
@@ -12,6 +12,11 @@
 | Examples Build | [![CI](https://github.com/espressif/esp-tflite-micro/actions/workflows/ci.yml/badge.svg)](https://github.com/espressif/esp-tflite-micro/actions/workflows/ci.yml)
 
 ## How to Install
+
+### ESP-IDF Support Policy
+We keep track with the ESP-IDF's support period policy mentioned [here](https://github.com/espressif/esp-idf?tab=readme-ov-file#esp-idf-release-support-schedule).
+
+Currently ESP-IDF versions `release/v4.4` and above are supported by this project.
 
 ### Install the ESP IDF
 
@@ -48,10 +53,10 @@ Available examples are:
  - micro_speech
  - person_detection
 
-Set the IDF_TARGET (For ESP32-S3 target, minimum IDF version `release/v4.4` is needed)
+Set the IDF_TARGET
 
 ```bash
-idf.py set-target esp32s3
+idf.py set-target esp32p4
 ```
 
 To build the example, run:
