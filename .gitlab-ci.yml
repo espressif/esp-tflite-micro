@@ -137,9 +137,9 @@ build_idf_v4.2:
 
 sync_from_github:on-schedule:
   stage: sync
-  image: espressif/idf:release-v5.0
+  image: espressif/idf:release-v5.2
   tags:
-    - sync
+    - github_sync
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == "master"'
   script:
