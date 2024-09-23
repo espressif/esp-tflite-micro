@@ -95,6 +95,7 @@ A quick summary of ESP-NN optimisations, measured on various chipsets:
 
 |   Target  |   TFLite Micro Example  | without ESP-NN  | with ESP-NN | CPU Freq  |
 | --------- | ----------------------- | --------------- | ----------- |-----------|
+| ESP32-P4  |   Person Detection      |     1395ms      |     73ms    |  360MHz   |
 | ESP32-S3  |   Person Detection      |     2300ms      |     54ms    |  240MHz   |
 | ESP32     |   Person Detection      |     4084ms      |    380ms    |  240MHz   |
 | ESP32-C3  |   Person Detection      |     3355ms      |    426ms    |  160MHz   |
@@ -102,6 +103,12 @@ A quick summary of ESP-NN optimisations, measured on various chipsets:
 Note:
   - The above is time taken for execution of the `invoke()` call
   - Internal memory used
+  - ESP32-P4 optimisation is work in progress
+  - `Without ESP-NN` case is when `esp-nn` is completely disabled by removing below flag from [CMakeLists.txt](CMakeLists.txt):
+    ```cmake
+      # enable ESP-NN optimizations by Espressif
+      target_compile_options(${COMPONENT_LIB} PRIVATE -DESP_NN)
+    ```
 
 Detailed kernelwise performance can be found [here](https://github.com/espressif/esp-nn).
 
