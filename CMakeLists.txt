@@ -8,6 +8,7 @@ set(compiler_mlir_dir "${CMAKE_CURRENT_SOURCE_DIR}/tensorflow/compiler/mlir/")
 set(tfmicro_dir "${tflite_dir}/micro")
 set(tfmicro_frontend_dir "${tflite_dir}/experimental/microfrontend/lib")
 set(tfmicro_kernels_dir "${tfmicro_dir}/kernels")
+set(tfmicro_compiler_dir "${tfmicro_dir}/compiler")
 
 set(srcs_micro
           "${tfmicro_dir}/debug_log.cc"
@@ -83,7 +84,6 @@ set(lib_srcs
           "${tflite_dir}/micro/arena_allocator/recording_single_arena_buffer_allocator.cc"
           "${tflite_dir}/micro/arena_allocator/single_arena_buffer_allocator.cc"
           "${tflite_dir}/core/c/common.cc"
-          "${tflite_dir}/core/api/error_reporter.cc"
           "${tflite_dir}/core/api/flatbuffer_conversions.cc"
           "${tflite_dir}/core/api/tensor_utils.cc"
           "${tflite_dir}/kernels/internal/common.cc"
@@ -93,6 +93,7 @@ set(lib_srcs
           "${tflite_dir}/kernels/internal/tensor_ctypes.cc"
           "${tflite_dir}/kernels/internal/reference/portable_tensor_utils.cc"
           "${tflite_dir}/kernels/internal/reference/comparisons.cc"
+          "${compiler_mlir_dir}/lite/core/api/error_reporter.cc"
           "${compiler_mlir_dir}/lite/schema/schema_utils.cc")
 
 set(priv_req)
