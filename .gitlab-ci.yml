@@ -37,15 +37,15 @@ pre-commit-mr:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
   tags: [build, internet]
 
-include:
-  - project: espressif/shared-ci-dangerjs
-    ref: master
-    file: danger.yaml
-run-danger-mr-linter:
-  before_script:
-    - echo "Skip common before script"
-  stage: pre-check
-  tags: [build, internet]
+# include:
+#   - project: espressif/shared-ci-dangerjs
+#     ref: master
+#     file: danger.yaml
+# run-danger-mr-linter:
+#   before_script:
+#     - echo "Skip common before script"
+#   stage: pre-check
+#   tags: [build, internet]
 
 before_script:
     - mkdir -p ~/.ssh
