@@ -49,7 +49,8 @@ build_flags =
 lib_deps = 
     https://github.com/espressif/esp-tflite-micro.git
 
-; src_dir = .pio/libdeps/esp32-c6-devkitc-1/esp-tflite-micro/examples/hello_world # build hello_world example
+; src_dir = 
+    -I ${PROJECT_LIBDEPS_DIR}/${PIOENV}/esp-tflite-micro/examples/hello_world
 ```
 
 ## Using the component
