@@ -109,9 +109,6 @@ idf_component_register(
                          "third_party/flatbuffers/include"
                          "third_party/ruy"
                          "third_party/kissfft"
-                         "signal/micro/kernels"
-                         "signal/src"
-                         "signal/src/kiss_fft_wrappers"
             REQUIRES ${pub_req}
             PRIV_REQUIRES ${priv_req})
 
