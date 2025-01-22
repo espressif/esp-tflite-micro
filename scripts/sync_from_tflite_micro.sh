@@ -40,6 +40,10 @@ python3 tensorflow/lite/micro/tools/project_generation/create_tflm_tree.py \
 /bin/cp -r "${TFLITE_LIB_DIR}"/tensorflow/lite/micro/kernels/esp_nn \
   "${TEMP_DIR}"/tflm-out/tensorflow/lite/micro/kernels/
 
+# Backup `micro/esp` directory to new tree
+/bin/cp -r "${TFLITE_LIB_DIR}"/tensorflow/lite/micro/esp \
+  "${TEMP_DIR}"/tflm-out/tensorflow/lite/micro/
+
 cd "${TFLITE_LIB_DIR}"
 rm -rf tensorflow
 rm -rf third_party
