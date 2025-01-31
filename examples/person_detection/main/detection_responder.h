@@ -29,4 +29,7 @@ limitations under the License.
 // particular applications.
 void RespondToDetection(float person_score, float no_person_score);
 
+// Initialize GUI components
+void create_gui();
+
 #endif  // TENSORFLOW_LITE_MICRO_EXAMPLES_PERSON_DETECTION_DETECTION_RESPONDER_H_
