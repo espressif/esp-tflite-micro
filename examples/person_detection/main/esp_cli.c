@@ -24,6 +24,7 @@
 #include "esp_cli.h"
 #include "esp_timer.h"
 
+#if CLI_ONLY_INFERENCE
 #define IMAGE_COUNT 10
 static uint8_t *image_database[IMAGE_COUNT];
 
@@ -38,6 +39,7 @@ extern const uint8_t image6_start[]   asm("_binary_image6_start");
 extern const uint8_t image7_start[]   asm("_binary_image7_start");
 extern const uint8_t image8_start[]   asm("_binary_image8_start");
 extern const uint8_t image9_start[]   asm("_binary_image9_start");
+#endif
 
 static const char *TAG = "[esp_cli]";
 
@@ -96,6 +98,7 @@ static int mem_dump_cli_handler(int argc, char *argv[])
     return 0;
 }
 
+#if CLI_ONLY_INFERENCE
 static int inference_cli_handler(int argc, char *argv[])
 {
     /* Just to go to the next line */
@@ -121,6 +124,18 @@ static int inference_cli_handler(int argc, char *argv[])
     return 0;
 }
 
+int esp_cli_register_inference_command() {
+    esp_console_cmd_t command = {
+        .command = "detect_image",
+        .help = "detect_image <image_number>"
+                "Note: image numbers ranging from 0 - 9 only are valid",
+        .func = inference_cli_handler,
+    };
+    esp_console_cmd_register(&command);
+    return 0;
+}
+#endif
+
 static esp_console_cmd_t diag_cmds[] = {
     {
         .command = "mem-dump",
@@ -137,12 +152,6 @@ static esp_console_cmd_t diag_cmds[] = {
         .help = "",
         .func = cpu_dump_cli_handler,
     },
-    {
-        .command = "detect_image",
-        .help = "detect_image <image_number>"
-                "Note: image numbers ranging from 0 - 9 only are valid",
-        .func = inference_cli_handler,
-    },
 };
 
 int esp_cli_register_cmds()
@@ -158,6 +167,7 @@ int esp_cli_register_cmds()
 
 static void image_database_init()
 {
+#if CLI_ONLY_INFERENCE
     image_database[0] = (uint8_t *) image0_start;
     image_database[1] = (uint8_t *) image1_start;
     image_database[2] = (uint8_t *) image2_start;
@@ -168,7 +178,7 @@ static void image_database_init()
     image_database[7] = (uint8_t *) image7_start;
     image_database[8] = (uint8_t *) image8_start;
     image_database[9] = (uint8_t *) image9_start;
-
+#endif
 }
 
 int esp_cli_start()
