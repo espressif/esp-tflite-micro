@@ -14,6 +14,7 @@ limitations under the License.
 ==============================================================================*/
 
 #include "app_camera_esp.h"
+#include "esp_log.h"
 #include "sdkconfig.h"
 
 #if (CONFIG_TFLITE_USE_BSP)
