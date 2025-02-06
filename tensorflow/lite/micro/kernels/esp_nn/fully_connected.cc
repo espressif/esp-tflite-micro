@@ -153,6 +153,21 @@ TfLiteStatus FullyConnectedEval(TfLiteContext* context, TfLiteNode* node) {
           break;
         }
         case kTfLiteInt8: {
+          if (data.is_per_channel) {
+            // Optimisations for per_channel data haven't been implemented yet, so fallback to TFLM's own implementation
+            tflite::reference_integer_ops::FullyConnectedPerChannel(
+              FullyConnectedParamsQuantized(data),
+              data.per_channel_output_multiplier,
+              reinterpret_cast<const int*>(data.per_channel_output_shift),
+              tflite::micro::GetTensorShape(input),
+              tflite::micro::GetTensorData<int8_t>(input),
+              tflite::micro::GetTensorShape(filter),
+              tflite::micro::GetTensorData<int8_t>(filter),
+              tflite::micro::GetTensorShape(bias),
+              tflite::micro::GetOptionalTensorData<int32_t>(bias),
+              tflite::micro::GetTensorShape(output),
+              tflite::micro::GetTensorData<int8_t>(output));
+          } else {
 #if ESP_NN
           const RuntimeShape& filter_shape = tflite::micro::GetTensorShape(filter);
           const RuntimeShape& output_shape = tflite::micro::GetTensorShape(output);
@@ -197,6 +212,7 @@ TfLiteStatus FullyConnectedEval(TfLiteContext* context, TfLiteNode* node) {
               tflite::micro::GetTensorShape(output),
               tflite::micro::GetTensorData<int8_t>(output));
 #endif
+          }
           break;
         }
         default: {
