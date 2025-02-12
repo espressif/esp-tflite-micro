@@ -175,7 +175,7 @@ TfLiteStatus FullyConnectedEval(TfLiteContext* context, TfLiteNode* node) {
             const int8_t *filter_data = tflite::micro::GetTensorData<int8_t>(filter);
 
             for (int b = 0; b < batches; ++b) {
-              esp_nn_fully_connected_per_channel_s8(input_data, -data.input_zero_point,
+              esp_nn_fully_connected_per_ch_s8(input_data, -data.input_zero_point,
                                         accum_depth,
                                         filter_data, -data.filter_zero_point,
                                         bias_data, output_data, output_depth,
