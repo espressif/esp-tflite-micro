@@ -9,7 +9,12 @@
 
 name: CI
 
-on: push
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+  pull_request:
 
 jobs:
   build:
