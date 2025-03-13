@@ -29,6 +29,11 @@ set(srcs_micro
           "${tfmicro_dir}/recording_micro_allocator.cc"
           "${tfmicro_dir}/system_setup.cc")
 
+list(REMOVE_ITEM srcs_micro
+          "${tfmicro_dir}/micro_time.cc")
+list(APPEND srcs_micro
+          "${tfmicro_dir}/esp/micro_time.cc")
+
 file(GLOB src_micro_frontend
           "${tfmicro_frontend_dir}/*.c"
           "${tfmicro_frontend_dir}/*.cc")
