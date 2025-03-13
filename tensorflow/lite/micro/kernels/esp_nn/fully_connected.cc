@@ -153,50 +153,99 @@ TfLiteStatus FullyConnectedEval(TfLiteContext* context, TfLiteNode* node) {
           break;
         }
         case kTfLiteInt8: {
+          if (data.is_per_channel) {
 #if ESP_NN
-          const RuntimeShape& filter_shape = tflite::micro::GetTensorShape(filter);
-          const RuntimeShape& output_shape = tflite::micro::GetTensorShape(output);
+            const RuntimeShape& filter_shape = tflite::micro::GetTensorShape(filter);
+            const RuntimeShape& output_shape = tflite::micro::GetTensorShape(output);
 
-          TFLITE_DCHECK_GE(filter_shape.DimensionsCount(), 2);
-          TFLITE_DCHECK_GE(output_shape.DimensionsCount(), 1);
-          const int filter_dim_count = filter_shape.DimensionsCount();
-          const int output_dim_count = output_shape.DimensionsCount();
-          const int batches = FlatSizeSkipDim(output_shape, output_dim_count - 1);
-          const int output_depth = output_shape.Dims(output_dim_count - 1);
-          TFLITE_DCHECK_LE(output_depth, filter_shape.Dims(filter_dim_count - 2));
-          const int accum_depth = filter_shape.Dims(filter_dim_count - 1);
+            TFLITE_DCHECK_GE(filter_shape.DimensionsCount(), 2);
+            TFLITE_DCHECK_GE(output_shape.DimensionsCount(), 1);
+            const int filter_dim_count = filter_shape.DimensionsCount();
+            const int output_dim_count = output_shape.DimensionsCount();
+            const int batches = FlatSizeSkipDim(output_shape, output_dim_count - 1);
+            const int output_depth = output_shape.Dims(output_dim_count - 1);
+            TFLITE_DCHECK_LE(output_depth, filter_shape.Dims(filter_dim_count - 2));
+            const int accum_depth = filter_shape.Dims(filter_dim_count - 1);
 
-          const int32_t* bias_data =
-              tflite::micro::GetOptionalTensorData<int32_t>(bias);
+            const int32_t* bias_data =
+                tflite::micro::GetOptionalTensorData<int32_t>(bias);
 
-          const int8_t *input_data = tflite::micro::GetTensorData<int8_t>(input);
-          int8_t *output_data = tflite::micro::GetTensorData<int8_t>(output);
-          const int8_t *filter_data = tflite::micro::GetTensorData<int8_t>(filter);
+            const int8_t *input_data = tflite::micro::GetTensorData<int8_t>(input);
+            int8_t *output_data = tflite::micro::GetTensorData<int8_t>(output);
+            const int8_t *filter_data = tflite::micro::GetTensorData<int8_t>(filter);
 
-          for (int b = 0; b < batches; ++b) {
-            esp_nn_fully_connected_s8(input_data, -data.input_zero_point,
-                                      accum_depth,
-                                      filter_data, -data.filter_zero_point,
-                                      bias_data, output_data, output_depth,
-                                      data.output_zero_point,
-                                      data.output_shift, data.output_multiplier,
-                                      data.output_activation_min,
-                                      data.output_activation_max);
-            input_data += accum_depth;
-            output_data += output_depth;
-          }
+            for (int b = 0; b < batches; ++b) {
+              esp_nn_fully_connected_per_ch_s8(input_data, -data.input_zero_point,
+                                        accum_depth,
+                                        filter_data, -data.filter_zero_point,
+                                        bias_data, output_data, output_depth,
+                                        data.output_zero_point,
+                                        data.per_channel_output_shift, data.per_channel_output_multiplier,
+                                        data.output_activation_min,
+                                        data.output_activation_max);
+              input_data += accum_depth;
+              output_data += output_depth;
+            }
 #else
-          tflite::reference_integer_ops::FullyConnected(
-              FullyConnectedParamsQuantized(data),
-              tflite::micro::GetTensorShape(input),
-              tflite::micro::GetTensorData<int8_t>(input),
-              tflite::micro::GetTensorShape(filter),
-              tflite::micro::GetTensorData<int8_t>(filter),
-              tflite::micro::GetTensorShape(bias),
-              tflite::micro::GetOptionalTensorData<int32_t>(bias),
-              tflite::micro::GetTensorShape(output),
-              tflite::micro::GetTensorData<int8_t>(output));
+            tflite::reference_integer_ops::FullyConnectedPerChannel(
+                FullyConnectedParamsQuantized(data),
+                data.per_channel_output_multiplier,
+                reinterpret_cast<const int*>(data.per_channel_output_shift),
+                tflite::micro::GetTensorShape(input),
+                tflite::micro::GetTensorData<int8_t>(input),
+                tflite::micro::GetTensorShape(filter),
+                tflite::micro::GetTensorData<int8_t>(filter),
+                tflite::micro::GetTensorShape(bias),
+                tflite::micro::GetOptionalTensorData<int32_t>(bias),
+                tflite::micro::GetTensorShape(output),
+                tflite::micro::GetTensorData<int8_t>(output));
 #endif
+          } else {
+#if ESP_NN
+            const RuntimeShape& filter_shape = tflite::micro::GetTensorShape(filter);
+            const RuntimeShape& output_shape = tflite::micro::GetTensorShape(output);
+
+            TFLITE_DCHECK_GE(filter_shape.DimensionsCount(), 2);
+            TFLITE_DCHECK_GE(output_shape.DimensionsCount(), 1);
+            const int filter_dim_count = filter_shape.DimensionsCount();
+            const int output_dim_count = output_shape.DimensionsCount();
+            const int batches = FlatSizeSkipDim(output_shape, output_dim_count - 1);
+            const int output_depth = output_shape.Dims(output_dim_count - 1);
+            TFLITE_DCHECK_LE(output_depth, filter_shape.Dims(filter_dim_count - 2));
+            const int accum_depth = filter_shape.Dims(filter_dim_count - 1);
+
+            const int32_t* bias_data =
+                tflite::micro::GetOptionalTensorData<int32_t>(bias);
+
+            const int8_t *input_data = tflite::micro::GetTensorData<int8_t>(input);
+            int8_t *output_data = tflite::micro::GetTensorData<int8_t>(output);
+            const int8_t *filter_data = tflite::micro::GetTensorData<int8_t>(filter);
+
+            for (int b = 0; b < batches; ++b) {
+              esp_nn_fully_connected_s8(input_data, -data.input_zero_point,
+                                        accum_depth,
+                                        filter_data, -data.filter_zero_point,
+                                        bias_data, output_data, output_depth,
+                                        data.output_zero_point,
+                                        data.output_shift, data.output_multiplier,
+                                        data.output_activation_min,
+                                        data.output_activation_max);
+              input_data += accum_depth;
+              output_data += output_depth;
+            }
+#else
+            tflite::reference_integer_ops::FullyConnected(
+                FullyConnectedParamsQuantized(data),
+                tflite::micro::GetTensorShape(input),
+                tflite::micro::GetTensorData<int8_t>(input),
+                tflite::micro::GetTensorShape(filter),
+                tflite::micro::GetTensorData<int8_t>(filter),
+                tflite::micro::GetTensorShape(bias),
+                tflite::micro::GetOptionalTensorData<int32_t>(bias),
+                tflite::micro::GetTensorShape(output),
+                tflite::micro::GetTensorData<int8_t>(output));
+#endif
+          }
           break;
         }
         default: {
