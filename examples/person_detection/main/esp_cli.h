@@ -19,6 +19,7 @@ extern "C" {
 #endif
 
 int esp_cli_start();
+int esp_cli_register_inference_command();
 
 #ifdef __cplusplus
 }
