@@ -32,7 +32,6 @@ limitations under the License.
 #include <esp_log.h>
 #include "esp_main.h"
 
-// Globals, used for compatibility with Arduino-style sketches.
 namespace {
 const tflite::Model* model = nullptr;
 tflite::MicroInterpreter* interpreter = nullptr;
@@ -56,7 +55,6 @@ constexpr int kTensorArenaSize = 100 * 1024 + scratchBufSize;
 static uint8_t *tensor_arena;//[kTensorArenaSize]; // Maybe we should move this to external
 }  // namespace
 
-// The name of this function is important for Arduino compatibility.
 void setup() {
   // Map the model into a usable data structure. This doesn't involve any
   // copying or parsing, it's a very lightweight operation.
@@ -68,7 +66,7 @@ void setup() {
   }
 
   if (tensor_arena == NULL) {
-    tensor_arena = (uint8_t *) heap_caps_malloc(kTensorArenaSize, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    tensor_arena = (uint8_t *) heap_caps_malloc(kTensorArenaSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
   }
   if (tensor_arena == NULL) {
     printf("Couldn't allocate memory of %d bytes\n", kTensorArenaSize);
@@ -113,11 +111,14 @@ void setup() {
     MicroPrintf("InitCamera failed\n");
     return;
   }
-#endif
+
+#if DISPLAY_SUPPORT
+  create_gui();
+#endif // DISPLAY_SUPPORT
+#endif // CLI_ONLY_INFERENCE
 }
 
 #ifndef CLI_ONLY_INFERENCE
-// The name of this function is important for Arduino compatibility.
 void loop() {
   // Get image from provider.
   if (kTfLiteOk != GetImage(kNumCols, kNumRows, kNumChannels, input->data.int8)) {
@@ -144,7 +145,7 @@ void loop() {
   RespondToDetection(person_score_f, no_person_score_f);
   vTaskDelay(1); // to avoid watchdog trigger
 }
-#endif
+#endif // CLI_ONLY_INFERENCE
 
 #if defined(COLLECT_CPU_STATS)
   long long total_time = 0;

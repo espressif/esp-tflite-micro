@@ -20,15 +20,13 @@ limitations under the License.
 #include "freertos/task.h"
 
 #include "esp_main.h"
-
-#if CLI_ONLY_INFERENCE
 #include "esp_cli.h"
-#endif
 
 void tf_main(void) {
   setup();
-#if CLI_ONLY_INFERENCE
   esp_cli_start();
+#if CLI_ONLY_INFERENCE
+  esp_cli_register_inference_command();
   vTaskDelay(portMAX_DELAY);
 #else
   while (true) {

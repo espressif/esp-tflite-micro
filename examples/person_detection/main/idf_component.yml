@@ -2,20 +2,16 @@ dependencies:
   espressif/esp-tflite-micro:
     version: "*"
     override_path: "../../../"
-
-  espressif/esp32-camera: "~2.0.5"
-
-  espressif/esp32_s3_eye:
-    version: "3.*"
-    rules:
-      - if: "target == $TFLITE_USE_BSP_S3_EYE"
-
-  espressif/esp32_s3_korvo_2:
-    version: "2.*"
-    rules:
-      - if: "target == $TFLITE_USE_BSP_KORVO_2"
-
+  espressif/esp32-camera: ~2.0.5
   espressif/esp32_s2_kaluga_kit:
-    version: "3.*"
     rules:
-      - if: "target == $TFLITE_USE_BSP_KALUGA"
+      - if: "$TFLITE_USE_BSP_KALUGA == 1"
+    version: 3.*
+  espressif/esp32_s3_eye:
+    rules:
+      - if: "$TFLITE_USE_BSP_S3_EYE == 1"
+    version: 4.*
+  espressif/esp32_s3_korvo_2:
+    rules:
+      - if: "$TFLITE_USE_BSP_KORVO_2 == 1"
+    version: 2.*
