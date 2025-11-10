@@ -45,7 +45,7 @@ static const char* TAG = "TF_LITE_AUDIO_PROVIDER";
 ringbuf_t* g_audio_capture_buffer;
 volatile int32_t g_latest_audio_timestamp = 0;
 /* model requires 20ms new data from g_audio_capture_buffer and 10ms old data
- * each time , storing old data in the histrory buffer , {
+ * each time , storing old data in the history buffer , {
  * history_samples_to_keep = 10 * 16 } */
 constexpr int32_t history_samples_to_keep =
     ((kFeatureDurationMs - kFeatureStrideMs) *
