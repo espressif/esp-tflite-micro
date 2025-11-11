@@ -6,7 +6,7 @@ documentation: https://github.com/espressif/tflite-micro-esp-examples#readme
 
 dependencies:
   idf:
-    version: ">=4.4"
+    version: ">=5.0"
   espressif/esp-nn:
     version: ">=1.1.1"
 files:

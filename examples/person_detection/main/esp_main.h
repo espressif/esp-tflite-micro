@@ -14,8 +14,11 @@
 
 #include "sdkconfig.h"
 
-// Enable this to do inference on embedded images
-// #define CLI_ONLY_INFERENCE 1
+// ESP32-P4 doesn't support camera yet, so use CLI_ONLY_INFERENCE mode
+#if CONFIG_IDF_TARGET_ESP32P4
+// Can be defined for other targets as well, to skip camera usage
+#define CLI_ONLY_INFERENCE 1
+#endif
 
 // Enable this to get cpu stats
 #define COLLECT_CPU_STATS 1
