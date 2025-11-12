@@ -20,13 +20,17 @@ jobs:
   build:
     strategy:
       matrix:
-        idf_ver: ["release-v4.4", "release-v5.0", "release-v5.3"]
+        idf_ver: ["release-v5.0", "release-v5.3", "release-v5.4", "release-v5.5"]
         idf_target: ["esp32", "esp32s2", "esp32s3"]
         include:
           - idf_ver: "release-v4.4"
             idf_target: "esp32c3"
           - idf_ver: "release-v5.0"
             idf_target: "esp32c2"
+          - idf_ver: "release-v5.4"
+            idf_target: "esp32p4"
+          - idf_ver: "release-v5.5"
+            idf_target: "esp32p4"
     runs-on: ubuntu-22.04
     container: espressif/idf:${{ matrix.idf_ver }}
     steps:

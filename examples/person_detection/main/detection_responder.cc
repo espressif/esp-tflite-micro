@@ -36,10 +36,26 @@ static lv_obj_t *camera_canvas = NULL;
 static lv_obj_t *person_indicator = NULL;
 static lv_obj_t *label = NULL;
 
-static void create_gui(void)
+void create_gui(void)
 {
-  bsp_display_start();
-  bsp_display_backlight_on(); // Set display brightness to 100%
+  bsp_display_cfg_t cfg = {
+    .lvgl_port_cfg = {
+      .task_priority = CONFIG_BSP_DISPLAY_LVGL_TASK_PRIORITY,
+      .task_stack = 6144,
+      .task_affinity = 1,
+      .task_max_sleep_ms = CONFIG_BSP_DISPLAY_LVGL_MAX_SLEEP,
+      .timer_period_ms = CONFIG_BSP_DISPLAY_LVGL_TICK,
+    },
+    .buffer_size = BSP_LCD_DRAW_BUFF_SIZE,
+    .double_buffer = BSP_LCD_DRAW_BUFF_DOUBLE,
+    .flags = {
+      .buff_dma = false,
+      .buff_spiram = true,
+    }
+  };
+  bsp_display_start_with_config(&cfg);
+  bsp_display_backlight_on();
+
   bsp_display_lock(0);
   camera_canvas = lv_canvas_create(lv_scr_act());
   assert(camera_canvas);
@@ -62,20 +78,21 @@ void RespondToDetection(float person_score, float no_person_score) {
   int person_score_int = (person_score) * 100 + 0.5;
   (void) no_person_score; // unused
 #if DISPLAY_SUPPORT
-    if (!camera_canvas) {
-      create_gui();
-    }
+  if (!camera_canvas) {
+    create_gui();
+  }
 
-    uint16_t *buf = (uint16_t *) image_provider_get_display_buf();
+  uint16_t *buf = (uint16_t *) image_provider_get_display_buf();
 
-    bsp_display_lock(0);
-    if (person_score_int < 60) { // treat score less than 60% as no person
-      lv_led_off(person_indicator);
-    } else {
-      lv_led_on(person_indicator);
-    }
-    lv_canvas_set_buffer(camera_canvas, buf, IMG_WD, IMG_HT, LV_IMG_CF_TRUE_COLOR);
-    bsp_display_unlock();
+  bsp_display_lock(0);
+  if (person_score_int < 60) { // treat score less than 60% as no person
+    lv_led_off(person_indicator);
+  } else {
+    lv_led_on(person_indicator);
+  }
+
+  lv_canvas_set_buffer(camera_canvas, buf, IMG_WD, IMG_HT, LV_COLOR_FORMAT_RGB565);
+  bsp_display_unlock();
 #endif // DISPLAY_SUPPORT
   MicroPrintf("person score:%d%%, no person score %d%%",
               person_score_int, 100 - person_score_int);

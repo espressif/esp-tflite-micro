@@ -1,4 +1,3 @@
-
 /* Copyright 2019 The TensorFlow Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,16 +12,17 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
 
+#include "string.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+
+#if (CONFIG_TFLITE_USE_BSP)
+#include "bsp/esp-bsp.h"
+#endif
+
+#include "esp_heap_caps.h"
 #include "esp_log.h"
-#include "esp_spi_flash.h"
-#include "esp_system.h"
-#include "esp_timer.h"
 
 #include "app_camera_esp.h"
 #include "esp_camera.h"
@@ -31,8 +31,7 @@ limitations under the License.
 #include "esp_main.h"
 
 static const char* TAG = "app_camera";
-
-static uint16_t *display_buf; // buffer to hold data to be sent to display
+static uint16_t* display_buf;
 
 // Get the camera module ready
 TfLiteStatus InitCamera() {
@@ -84,13 +83,19 @@ TfLiteStatus GetImage(int image_width, int image_height, int channels, int8_t* i
   // In case if display support is enabled, we initialise camera in rgb mode
   // Hence, we need to convert this data to grayscale to send it to tf model
   // For display we extra-polate the data to 192X192
+
+  // point to the last quarter of buffer
+  uint16_t* cam_buf = display_buf + (96 * 96 * 3);
+  memcpy((uint8_t*)cam_buf, fb->buf, fb->len);
+  esp_camera_fb_return(fb);
+
   for (int i = 0; i < kNumRows; i++) {
     for (int j = 0; j < kNumCols; j++) {
-      uint16_t pixel = ((uint16_t *) (fb->buf))[i * kNumCols + j];
+      uint16_t inference_pixel = cam_buf[i * kNumCols + j];
 
       // for inference
-      uint8_t hb = pixel & 0xFF;
-      uint8_t lb = pixel >> 8;
+      uint8_t hb = inference_pixel & 0xFF;
+      uint8_t lb = inference_pixel >> 8;
       uint8_t r = (lb & 0x1F) << 3;
       uint8_t g = ((hb & 0x07) << 5) | ((lb & 0xE0) >> 3);
       uint8_t b = (hb & 0xF8);
@@ -102,8 +107,14 @@ TfLiteStatus GetImage(int image_width, int image_height, int channels, int8_t* i
       int8_t grey_pixel = ((305 * r + 600 * g + 119 * b) >> 10) - 128;
 
       image_data[i * kNumCols + j] = grey_pixel;
+    }
+  }
 
-      // to display
+  // for display
+  lv_draw_sw_rgb565_swap(cam_buf, 96 * 96);
+  for (int i = 0; i < kNumRows; i++) {
+    for (int j = 0; j < kNumCols; j++) {
+      uint16_t pixel = cam_buf[i * kNumCols + j];
       display_buf[2 * i * kNumCols * 2 + 2 * j] = pixel;
       display_buf[2 * i * kNumCols * 2 + 2 * j + 1] = pixel;
       display_buf[(2 * i + 1) * kNumCols * 2 + 2 * j] = pixel;
@@ -117,9 +128,9 @@ TfLiteStatus GetImage(int image_width, int image_height, int channels, int8_t* i
   for (int i = 0; i < image_width * image_height; i++) {
     image_data[i] = ((uint8_t *) fb->buf)[i] ^ 0x80;
   }
-#endif // DISPLAY_SUPPORT
 
   esp_camera_fb_return(fb);
+#endif // DISPLAY_SUPPORT
   /* here the esp camera can give you grayscale image directly */
   return kTfLiteOk;
 #else
