@@ -18,6 +18,8 @@ We keep track with the ESP-IDF's support period policy mentioned [here](https://
 
 Currently ESP-IDF versions `release/v4.4` and above are supported by this project.
 
+## Method 1: Using ESP IDF
+
 ### Install the ESP IDF
 
 Follow the instructions of the
@@ -28,6 +30,28 @@ The next steps assume that this installation is successful and the
 [IDF environment variables are set](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html#step-4-set-up-the-environment-variables). Specifically,
 * the `IDF_PATH` environment variable is set
 * the `idf.py` and Xtensa-esp32 tools (e.g., `xtensa-esp32-elf-gcc`) are in `$PATH`
+
+## Method 2: Using PlatformIO
+
+### Configuration
+
+Add the following configuration to your `platformio.ini` file:
+
+```ini
+[env:your_env_name]
+build_flags =
+    -I ${PROJECT_LIBDEPS_DIR}/${PIOENV}/esp-tflite-micro/third_party/flatbuffers/include
+    -I ${PROJECT_LIBDEPS_DIR}/${PIOENV}/esp-tflite-micro/third_party/gemmlowp
+    -I ${PROJECT_LIBDEPS_DIR}/${PIOENV}/esp-tflite-micro/third_party/kissfft
+    -I ${PROJECT_LIBDEPS_DIR}/${PIOENV}/esp-tflite-micro/third_party/ruy
+    -Ofast
+    
+lib_deps = 
+    https://github.com/espressif/esp-tflite-micro.git
+
+; src_dir = 
+    -I ${PROJECT_LIBDEPS_DIR}/${PIOENV}/esp-tflite-micro/examples/hello_world
+```
 
 ## Using the component
 
