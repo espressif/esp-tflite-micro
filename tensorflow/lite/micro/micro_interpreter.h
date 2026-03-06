@@ -125,6 +125,9 @@ class MicroInterpreter {
   // Returns a pointer to the tensor for the corresponding tensor_index
   TfLiteEvalTensor* GetTensor(int tensor_index, int subgraph_index = 0);
 
+  // Zeros out a single variable tensor in a specified subgraph in the model.
+  TfLiteStatus ResetVariableTensor(int tensor_index, int subgraph_index = 0);
+
   // Reset the state to be what you would expect when the interpreter is first
   // created. i.e. after Init and Prepare is called for the very first time.
   TfLiteStatus Reset();
@@ -141,7 +144,7 @@ class MicroInterpreter {
   // Returns the actual used arena in bytes. This method gives the optimal arena
   // size. It's only available after `AllocateTensors` has been called.
   // Note that normally `tensor_arena` requires 16 bytes alignment to fully
-  // utilize the space. If it's not the case, the optimial arena size would be
+  // utilize the space. If it's not the case, the optimal arena size would be
   // arena_used_bytes() + 16.
   size_t arena_used_bytes() const { return allocator_.used_bytes(); }
 
