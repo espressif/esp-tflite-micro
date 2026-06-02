@@ -18,3 +18,12 @@ CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
 CONFIG_INT_WDT=
 CONFIG_TASK_WDT=
 CONFIG_COMPILER_OPTIMIZATION_PERF=y
+
+# Bootloader has outgrown the default 0x6000 cap on newer IDF + esp32p4;
+# move the partition table to 0xc000 and use an explicit partitions.csv with
+# matching offsets (matches esp-rainmaker examples).
+CONFIG_PARTITION_TABLE_OFFSET=0xc000
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_PARTITION_TABLE_FILENAME="partitions.csv"
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
