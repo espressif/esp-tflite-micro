@@ -20,6 +20,17 @@ set -e
 
 TARGET=$1
 
+# Optional bound on build parallelism (e.g. BUILD_JOBS=4). Shared CI runners
+# OOM when several unbounded ninja builds run concurrently; when BUILD_JOBS
+# is unset the default idf.py/ninja behavior is kept.
+build_app() {
+    if [ -n "${BUILD_JOBS}" ]; then
+        ninja -C build -j "${BUILD_JOBS}"
+    else
+        idf.py build
+    fi
+}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "Script Dir is set to ${SCRIPT_DIR}"
 ROOT_DIR=${SCRIPT_DIR}/../
@@ -31,7 +42,7 @@ cd "${ROOT_DIR}"/examples/hello_world
 # set target
 idf.py set-target $TARGET
 # build app
-idf.py build
+build_app
 echo "------------------------ Done: Building hello_world example ------------------------"
 
 echo "------------------------ Started: Building person_detection example ------------------------"
@@ -39,7 +50,7 @@ cd "${ROOT_DIR}"/examples/person_detection
 # set target
 idf.py set-target $TARGET
 # build app
-idf.py build
+build_app
 echo "------------------------ Done: Building person_detection example ------------------------"
 
 echo "------------------------ Started: Building micro_speech example ------------------------"
@@ -47,6 +58,5 @@ cd "${ROOT_DIR}"/examples/micro_speech
 # set target
 idf.py set-target $TARGET
 # build app
-idf.py build
+build_app
 echo "------------------------ Done: Building micro_speech example ------------------------"
-

@@ -97,7 +97,6 @@ set(lib_srcs
           "${tflite_dir}/kernels/internal/tensor_utils.cc"
           "${tflite_dir}/kernels/internal/tensor_ctypes.cc"
           "${tflite_dir}/kernels/internal/reference/portable_tensor_utils.cc"
-          "${tflite_dir}/kernels/internal/reference/comparisons.cc"
           "${compiler_mlir_dir}/lite/core/api/error_reporter.cc"
           "${compiler_mlir_dir}/lite/schema/schema_utils.cc")
 

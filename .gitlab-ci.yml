@@ -70,6 +70,9 @@ before_script:
     PEDANTIC_FLAGS: "-Werror -Wno-error=cpp -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
     EXTRA_CFLAGS: "${PEDANTIC_FLAGS}"
     EXTRA_CXXFLAGS: "${PEDANTIC_FLAGS}"
+    # bound compile parallelism: unbounded concurrent ninja builds OOM the
+    # shared runners (cc1plus gets killed) - see scripts/build_examples.sh
+    BUILD_JOBS: "4"
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       when: never
@@ -82,30 +85,35 @@ before_script:
 
 build_idf_v5.5:
   extends: .build_template
+  resource_group: tflm-build-b
   image: espressif/idf:release-v5.5
   variables:
     EXAMPLE_TARGETS: esp32 esp32s2 esp32s3 esp32c3 esp32c2 esp32p4
 
 build_idf_v5.4:
   extends: .build_template
+  resource_group: tflm-build-a
   image: espressif/idf:release-v5.4
   variables:
     EXAMPLE_TARGETS: esp32 esp32s2 esp32s3 esp32p4
 
 build_idf_v5.3:
   extends: .build_template
+  resource_group: tflm-build-b
   image: espressif/idf:release-v5.3
   variables:
     EXAMPLE_TARGETS: esp32 esp32s2 esp32s3 esp32c3 esp32c2
 
 build_idf_v5.1:
   extends: .build_template
+  resource_group: tflm-build-a
   image: espressif/idf:release-v5.1
   variables:
     EXAMPLE_TARGETS: esp32 esp32s2 esp32s3 esp32c3 esp32c2
 
 build_idf_v5.0:
   extends: .build_template
+  resource_group: tflm-build-b
   image: espressif/idf:release-v5.0
   variables:
     EXAMPLE_TARGETS: esp32 esp32s3 esp32c3 esp32c2
