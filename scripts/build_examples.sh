@@ -60,4 +60,3 @@ idf.py set-target $TARGET
 # build app
 build_app
 echo "------------------------ Done: Building micro_speech example ------------------------"
-
