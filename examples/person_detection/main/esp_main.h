@@ -14,9 +14,17 @@
 
 #include "sdkconfig.h"
 
-// ESP32-P4 doesn't support camera yet, so use CLI_ONLY_INFERENCE mode
+// Use CLI_ONLY_INFERENCE mode when there is no camera path available:
+// - on ESP32-P4 without the P4 function EV board BSP (camera comes via
+//   esp_video there, selected by CONFIG_TFLITE_USE_BSP_P4_EV_FUNC)
+// - on other targets whenever the esp32-camera component is not part
+//   of the build
+// Can also be defined manually to skip camera usage.
 #if CONFIG_IDF_TARGET_ESP32P4
-// Can be defined for other targets as well, to skip camera usage
+#if !CONFIG_TFLITE_USE_BSP_P4_EV_FUNC
+#define CLI_ONLY_INFERENCE 1
+#endif
+#elif !__has_include("esp_camera.h")
 #define CLI_ONLY_INFERENCE 1
 #endif
 

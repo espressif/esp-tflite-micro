@@ -20,12 +20,8 @@ limitations under the License.
  */
 
 #include "detection_responder.h"
-#include "display/lv_display.h"
 #include "esp_log.h"
-#include "freertos/projdefs.h"
-#include "misc/lv_color.h"
-#include "misc/lv_palette.h"
-#include "music/lv_demo_music.h"
+#include "freertos/FreeRTOS.h"
 #include "tensorflow/lite/micro/micro_log.h"
 
 #include "esp_main.h"
@@ -36,6 +32,9 @@ limitations under the License.
 #if DISPLAY_SUPPORT
 #include "image_provider.h"
 #include "bsp/esp-bsp.h"
+#include "display/lv_display.h"
+#include "misc/lv_color.h"
+#include "misc/lv_palette.h"
 
 // Camera definition is always initialized to match the trained detection model: 96x96 pix
 // That is too small for LCD displays, so we extrapolate the image to 192x192 pix

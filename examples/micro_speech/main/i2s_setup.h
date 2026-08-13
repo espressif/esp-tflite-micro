@@ -21,8 +21,8 @@
  * - ICS43434 MEMS microphone on idf v5.5.4
 */
 
-#ifndef _MICRO_SPEECH_I2S_SETUP_H_ 
-#define _MICRO_SPEECH_I2S_SETUP_H_ 
+#ifndef _MICRO_SPEECH_I2S_SETUP_H_
+#define _MICRO_SPEECH_I2S_SETUP_H_
 
 #include <driver/gpio.h>
 #include <stdint.h>
@@ -68,13 +68,23 @@ private:
     i2s_chan_handle_t rx_handle;        // I2S rx channel handler
 #endif
 
-#if CONFIG_IDF_TARGET_ESP32
-    i2s_port_t i2s_port = I2S_NUM_1; // for esp32-eye
+/* i2s_port_t was removed in IDF v6; port ids are plain ints there */
+#ifdef MICRO_SPEECH_USE_I2S_STD
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0)
+    typedef int i2s_port_id_t;
 #else
-    i2s_port_t i2s_port = I2S_NUM_0; // for esp32-s3-eye
+    typedef i2s_port_t i2s_port_id_t;
+#endif
+#else
+    typedef i2s_port_t i2s_port_id_t;
+#endif
+
+#if CONFIG_IDF_TARGET_ESP32
+    i2s_port_id_t i2s_port = I2S_NUM_1; // for esp32-eye
+#else
+    i2s_port_id_t i2s_port = I2S_NUM_0; // for esp32-s3-eye
 #endif
 
 };
 
-#endif  //_MICRO_SPEECH_I2S_SETUP_H_ 
-
+#endif  //_MICRO_SPEECH_I2S_SETUP_H_

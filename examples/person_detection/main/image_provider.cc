@@ -13,9 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "draw/sw/lv_draw_sw_utils.h"
 #include "esp_video_if.h"
-#include "examples/person_detection/main/detection_responder.h"
+#include "detection_responder.h"
 #include "string.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -30,10 +29,17 @@ limitations under the License.
 #include "esp_log.h"
 
 #include "app_camera_esp.h"
+/* esp32-camera is not part of the build on targets/configs without camera */
+#if __has_include("esp_camera.h")
 #include "esp_camera.h"
+#endif
 #include "model_settings.h"
 #include "image_provider.h"
 #include "esp_main.h"
+
+#if DISPLAY_SUPPORT
+#include "draw/sw/lv_draw_sw_utils.h"
+#endif
 
 static const char* TAG = "app_camera";
 static uint16_t* display_buf;

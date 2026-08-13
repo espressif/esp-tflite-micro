@@ -89,24 +89,24 @@ void Microphone::i2s_setup(void)
 {
 
 #ifdef MICRO_SPEECH_USE_I2S_STD
-    /* Setting I2S configurations */
+    /* Setting I2S configurations.
+     * Use the Philips slot default config macro so version/SoC-specific
+     * fields (msb_right vs left_align/big_endian/bit_order_lsb) stay portable. */
+#if CONFIG_IDF_TARGET_ESP32S3
+    i2s_std_slot_config_t slot_cfg =
+        I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_MONO);
+#else
+    i2s_std_slot_config_t slot_cfg =
+        I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO);
+#endif
+    slot_cfg.slot_mask = I2S_STD_SLOT_LEFT;            // capture left channel
+    slot_cfg.ws_width = I2S_SLOT_BIT_WIDTH_16BIT;
+    slot_cfg.ws_pol = false;                           // WS = 0 → left channel
+    slot_cfg.bit_shift = true;                         // Philips mode
+
     i2s_std_config_t std_cfg = {
         .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(sample_rate),
-        .slot_cfg = {
-#if CONFIG_IDF_TARGET_ESP32S3
-            .data_bit_width = I2S_DATA_BIT_WIDTH_32BIT,
-            .slot_bit_width = I2S_SLOT_BIT_WIDTH_32BIT,
-#else
-            .data_bit_width = I2S_DATA_BIT_WIDTH_16BIT,
-            .slot_bit_width = I2S_SLOT_BIT_WIDTH_16BIT,
-#endif
-            .slot_mode = I2S_SLOT_MODE_MONO,           // mono
-            .slot_mask = I2S_STD_SLOT_LEFT,            // capture left channel
-            .ws_width = I2S_SLOT_BIT_WIDTH_16BIT,
-            .ws_pol = false,                           // WS = 0 → left channel
-            .bit_shift = true,                         // Philips mode
-            .msb_right = false,                        // MSB first
-        },
+        .slot_cfg = slot_cfg,
         .gpio_cfg = {
             .mclk = I2S_GPIO_UNUSED,
             .bclk = sclk_pin,
@@ -145,7 +145,7 @@ void Microphone::i2s_setup(void)
 #if CONFIG_IDF_TARGET_ESP32S3
         .bits_per_sample = (i2s_bits_per_sample_t) 32,
 #else
-        .bits_per_sample = (i2s_bits_per_sample_t) 16,  
+        .bits_per_sample = (i2s_bits_per_sample_t) 16,
 #endif
         .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
         .communication_format = I2S_COMM_FORMAT_I2S,
@@ -202,4 +202,3 @@ void Microphone::i2s_readsamples(void *dest, size_t *bytes_read)
     i2s_read(i2s_port, dest, sizeof(int16_t) * (sample_buffer_size), bytes_read, pdMS_TO_TICKS(100));
 #endif
 }
-

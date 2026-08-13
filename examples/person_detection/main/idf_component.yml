@@ -2,7 +2,7 @@ dependencies:
   espressif/esp-tflite-micro:
     version: "*"
     override_path: "../../../"
-  espressif/esp32-camera: ~2.0.5
+  espressif/esp32-camera: ">=2.0.15,<3.0.0"
   espressif/esp32_s2_kaluga_kit:
     rules:
       - if: "$CONFIG{TFLITE_USE_BSP_KALUGA} == True"
