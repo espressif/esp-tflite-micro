@@ -21,6 +21,9 @@ choice BSP_SUPPORT
     config TFLITE_USE_BSP_KALUGA
         bool "ESP32-S2-KALUGA-KIT"
         select TFLITE_USE_BSP
+    config TFLITE_USE_BSP_P4_EV_FUNC
+        bool "ESP32-P4-EV-FUNC"
+        select TFLITE_USE_BSP
     config TFLITE_USE_BSP_NONE
         bool "None"
 endchoice

@@ -5,13 +5,17 @@ dependencies:
   espressif/esp32-camera: ~2.0.5
   espressif/esp32_s2_kaluga_kit:
     rules:
-      - if: "$TFLITE_USE_BSP_KALUGA == 1"
+      - if: "$CONFIG{TFLITE_USE_BSP_KALUGA} == True"
     version: 3.*
   espressif/esp32_s3_eye:
     rules:
-      - if: "$TFLITE_USE_BSP_S3_EYE == 1"
+      - if: "$CONFIG{TFLITE_USE_BSP_S3_EYE} == True"
     version: 4.*
   espressif/esp32_s3_korvo_2:
     rules:
-      - if: "$TFLITE_USE_BSP_KORVO_2 == 1"
+      - if: "$CONFIG{TFLITE_USE_BSP_KORVO_2} == True"
     version: 2.*
+  espressif/esp32_p4_function_ev_board:
+    version: "*"
+    rules:
+      - if: "$CONFIG{TFLITE_USE_BSP_P4_EV_FUNC} == True"
