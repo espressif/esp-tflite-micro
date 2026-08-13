@@ -79,9 +79,21 @@ before_script:
     - when: always
   script:
     - cd ${CI_PROJECT_DIR}
+    # older images ship an idf-component-manager without $CONFIG{...}
+    # manifest-rule support; pin a newer one where needed
+    - |
+      if [ -n "$IDF_COMPONENT_MGR_VER" ]; then
+        pip install idf-component-manager==$IDF_COMPONENT_MGR_VER
+      fi
     # build examples
     - *test_build
     - cd ${CI_PROJECT_DIR}
+
+build_idf_v6.0:
+  extends: .build_template
+  image: espressif/idf:release-v6.0
+  variables:
+    EXAMPLE_TARGETS: esp32 esp32s2 esp32s3 esp32c3 esp32c2 esp32p4
 
 build_idf_v5.5:
   extends: .build_template
@@ -117,6 +129,8 @@ build_idf_v5.0:
   image: espressif/idf:release-v5.0
   variables:
     EXAMPLE_TARGETS: esp32 esp32s3 esp32c3 esp32c2
+    # the v5.0 image's component manager predates $CONFIG{...} rules
+    IDF_COMPONENT_MGR_VER: "2.2.2"
 
 .push_to_gitlab: &push_to_gitlab
     # Push updated repo (synced from github) to gitlab

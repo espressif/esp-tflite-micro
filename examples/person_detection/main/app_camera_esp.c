@@ -18,12 +18,15 @@ limitations under the License.
 #include "esp_video_if.h"
 #include "esp_log.h"
 #include "sdkconfig.h"
+/* explicit include: no longer provided transitively by esp32-camera 2.1.x */
+#include "driver/gpio.h"
 
 #if (CONFIG_TFLITE_USE_BSP)
 #include "bsp/esp-bsp.h"
 #endif
 
-static const char *TAG = "app_camera";
+/* unused on targets where neither camera nor esp_video path compiles in */
+static const char *TAG __attribute__((unused)) = "app_camera";
 
 int app_camera_init() {
 #if (CONFIG_TFLITE_USE_BSP_P4_EV_FUNC)

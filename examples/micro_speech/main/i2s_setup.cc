@@ -23,6 +23,9 @@
 
 #include "i2s_setup.h"
 
+/* Entire implementation only exists on targets with an I2S peripheral */
+#if SOC_I2S_SUPPORTED
+
 
 /**
  * @brief  Constructor for Microphone class
@@ -54,10 +57,16 @@ Microphone::Microphone(void)
     sclk_pin = GPIO_NUM_41;
     lrclk_pin = GPIO_NUM_42;
     sdo_pin = GPIO_NUM_2;
-#else
+#elif CONFIG_IDF_TARGET_ESP32
     sclk_pin = GPIO_NUM_26;
     lrclk_pin = GPIO_NUM_32;
     sdo_pin = GPIO_NUM_33;
+#else
+    /* generic defaults that exist on all targets (incl. small-GPIO
+     * chips like C2/C3 where GPIO 26/32/33 are not defined) */
+    sclk_pin = GPIO_NUM_4;
+    lrclk_pin = GPIO_NUM_5;
+    sdo_pin = GPIO_NUM_6;
 #endif
 }
 
@@ -202,3 +211,5 @@ void Microphone::i2s_readsamples(void *dest, size_t *bytes_read)
     i2s_read(i2s_port, dest, sizeof(int16_t) * (sample_buffer_size), bytes_read, pdMS_TO_TICKS(100));
 #endif
 }
+
+#endif  // SOC_I2S_SUPPORTED

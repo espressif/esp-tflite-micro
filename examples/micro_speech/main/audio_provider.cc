@@ -62,9 +62,8 @@ int16_t g_audio_output_buffer[kMaxAudioSampleSize * 32];
 bool g_is_audio_initialized = false;
 int16_t g_history_buffer[history_samples_to_keep];
 
-static Microphone mic;
-
 #if !NO_I2S_SUPPORT
+static Microphone mic;
 uint8_t g_i2s_read_buffer[i2s_bytes_to_read] = {};
 #endif
 }  // namespace

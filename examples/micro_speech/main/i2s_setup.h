@@ -29,6 +29,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_idf_version.h"
+#include "soc/soc_caps.h"
+
+/* Some targets (e.g. ESP32-C2) have no I2S peripheral at all */
+#if SOC_I2S_SUPPORTED
 
 
 #pragma message ("ESP IDF " IDF_VER)
@@ -86,5 +90,7 @@ private:
 #endif
 
 };
+
+#endif  // SOC_I2S_SUPPORTED
 
 #endif  //_MICRO_SPEECH_I2S_SETUP_H_
