@@ -21,6 +21,7 @@ pre-commit-mr:
   stage: pre-check
   image: "$CI_DOCKER_REGISTRY/pre-commit-codecheck:1"
   allow_failure: true
+  interruptible: true
   before_script:
     - echo "Skip common before script"
   script:
@@ -64,6 +65,8 @@ before_script:
 .build_template:
   stage: build
   image: espressif/idf:latest
+  # let a superseded pipeline release its resource_group lane
+  interruptible: true
   tags:
     - build
   variables:
@@ -91,6 +94,7 @@ before_script:
 
 build_idf_v6.0:
   extends: .build_template
+  resource_group: tflm-build-a
   image: espressif/idf:release-v6.0
   variables:
     EXAMPLE_TARGETS: esp32 esp32s2 esp32s3 esp32c3 esp32c2 esp32p4
