@@ -28,7 +28,15 @@
 ### ESP-IDF Support Policy
 We keep track with the ESP-IDF's support period policy mentioned [here](https://github.com/espressif/esp-idf?tab=readme-ov-file#esp-idf-release-support-schedule).
 
-Currently ESP-IDF versions `release/v4.4` and above are supported by this project.
+| ESP-IDF version | Supported |
+| --------------- | :-------: |
+| `release/v6.0`  | ✅ |
+| `release/v5.5`  | ✅ |
+| `release/v5.4`  | ✅ |
+| `release/v5.3`  | ✅ |
+| `release/v5.2`  | ✅ (not covered by CI) |
+| `release/v5.1`  | ✅ |
+| `release/v5.0` and below | ❌ (end of life) |
 
 ### Install the ESP IDF
 

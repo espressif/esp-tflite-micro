@@ -2,8 +2,8 @@ name: Upload component to IDF Component Registry
 
 on:
   push:
-    tags:
-      - v*
+    branches:
+      - master
 
 jobs:
   upload_components:
@@ -15,5 +15,4 @@ jobs:
         with:
           namespace: "espressif"
           name: "esp-tflite-micro"
-          version: ${{ github.ref_name }}
           api_token: ${{ secrets.IDF_COMPONENT_API_TOKEN }}

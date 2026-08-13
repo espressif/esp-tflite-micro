@@ -16,8 +16,11 @@ limitations under the License.
 #ifndef TENSORFLOW_LITE_MICRO_EXAMPLES_PERSON_DETECTION_ESP_APP_CAMERA_ESP_H_
 #define TENSORFLOW_LITE_MICRO_EXAMPLES_PERSON_DETECTION_ESP_APP_CAMERA_ESP_H_
 
+/* esp32-camera is not part of the build on targets/configs without camera */
+#if __has_include("esp_camera.h")
 #include "sensor.h"
 #include "esp_camera.h"
+#endif
 #include "esp_log.h"
 #include "esp_system.h"
 

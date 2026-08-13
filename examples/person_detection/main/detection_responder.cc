@@ -20,12 +20,21 @@ limitations under the License.
  */
 
 #include "detection_responder.h"
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
 #include "tensorflow/lite/micro/micro_log.h"
 
 #include "esp_main.h"
+#include <cstdint>
+
+#define TAG "DETECT"
+
 #if DISPLAY_SUPPORT
 #include "image_provider.h"
 #include "bsp/esp-bsp.h"
+#include "display/lv_display.h"
+#include "misc/lv_color.h"
+#include "misc/lv_palette.h"
 
 // Camera definition is always initialized to match the trained detection model: 96x96 pix
 // That is too small for LCD displays, so we extrapolate the image to 192x192 pix
@@ -38,22 +47,7 @@ static lv_obj_t *label = NULL;
 
 void create_gui(void)
 {
-  bsp_display_cfg_t cfg = {
-    .lvgl_port_cfg = {
-      .task_priority = CONFIG_BSP_DISPLAY_LVGL_TASK_PRIORITY,
-      .task_stack = 6144,
-      .task_affinity = 1,
-      .task_max_sleep_ms = CONFIG_BSP_DISPLAY_LVGL_MAX_SLEEP,
-      .timer_period_ms = CONFIG_BSP_DISPLAY_LVGL_TICK,
-    },
-    .buffer_size = BSP_LCD_DRAW_BUFF_SIZE,
-    .double_buffer = BSP_LCD_DRAW_BUFF_DOUBLE,
-    .flags = {
-      .buff_dma = false,
-      .buff_spiram = true,
-    }
-  };
-  bsp_display_start_with_config(&cfg);
+  bsp_display_start();
   bsp_display_backlight_on();
 
   bsp_display_lock(0);
@@ -82,7 +76,9 @@ void RespondToDetection(float person_score, float no_person_score) {
     create_gui();
   }
 
-  uint16_t *buf = (uint16_t *) image_provider_get_display_buf();
+  uint16_t *display_buf;
+  uint32_t display_buf_width, display_buf_height;
+  image_provider_get_display_buf(&display_buf, &display_buf_width, &display_buf_height);
 
   bsp_display_lock(0);
   if (person_score_int < 60) { // treat score less than 60% as no person
@@ -91,7 +87,7 @@ void RespondToDetection(float person_score, float no_person_score) {
     lv_led_on(person_indicator);
   }
 
-  lv_canvas_set_buffer(camera_canvas, buf, IMG_WD, IMG_HT, LV_COLOR_FORMAT_RGB565);
+  lv_canvas_set_buffer(camera_canvas, display_buf, display_buf_width, display_buf_height, LV_COLOR_FORMAT_RGB565);
   bsp_display_unlock();
 #endif // DISPLAY_SUPPORT
   MicroPrintf("person score:%d%%, no person score %d%%",

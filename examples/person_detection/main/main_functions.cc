@@ -66,7 +66,10 @@ void setup() {
   }
 
   if (tensor_arena == NULL) {
-    tensor_arena = (uint8_t *) heap_caps_malloc(kTensorArenaSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    // prefer PSRAM, fall back to internal RAM on targets/boards without it
+    tensor_arena = (uint8_t *) heap_caps_malloc_prefer(kTensorArenaSize, 2,
+                                                       MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT,
+                                                       MALLOC_CAP_8BIT);
   }
   if (tensor_arena == NULL) {
     printf("Couldn't allocate memory of %d bytes\n", kTensorArenaSize);

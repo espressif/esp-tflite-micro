@@ -21,6 +21,7 @@ pre-commit-mr:
   stage: pre-check
   image: "$CI_DOCKER_REGISTRY/pre-commit-codecheck:1"
   allow_failure: true
+  interruptible: true
   before_script:
     - echo "Skip common before script"
   script:
@@ -64,6 +65,8 @@ before_script:
 .build_template:
   stage: build
   image: espressif/idf:latest
+  # let a superseded pipeline release its resource_group lane
+  interruptible: true
   tags:
     - build
   variables:
@@ -79,9 +82,22 @@ before_script:
     - when: always
   script:
     - cd ${CI_PROJECT_DIR}
+    # older images ship an idf-component-manager without $CONFIG{...}
+    # manifest-rule support; pin a newer one where needed
+    - |
+      if [ -n "$IDF_COMPONENT_MGR_VER" ]; then
+        pip install idf-component-manager==$IDF_COMPONENT_MGR_VER
+      fi
     # build examples
     - *test_build
     - cd ${CI_PROJECT_DIR}
+
+build_idf_v6.0:
+  extends: .build_template
+  resource_group: tflm-build-a
+  image: espressif/idf:release-v6.0
+  variables:
+    EXAMPLE_TARGETS: esp32 esp32s2 esp32s3 esp32c3 esp32c2 esp32p4
 
 build_idf_v5.5:
   extends: .build_template
@@ -110,13 +126,6 @@ build_idf_v5.1:
   image: espressif/idf:release-v5.1
   variables:
     EXAMPLE_TARGETS: esp32 esp32s2 esp32s3 esp32c3 esp32c2
-
-build_idf_v5.0:
-  extends: .build_template
-  resource_group: tflm-build-b
-  image: espressif/idf:release-v5.0
-  variables:
-    EXAMPLE_TARGETS: esp32 esp32s3 esp32c3 esp32c2
 
 .push_to_gitlab: &push_to_gitlab
     # Push updated repo (synced from github) to gitlab
