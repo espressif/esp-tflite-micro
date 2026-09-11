@@ -175,6 +175,22 @@ TfLiteStatus FullyConnectedEval(TfLiteContext* context, TfLiteNode* node) {
             int8_t *output_data = tflite::micro::GetTensorData<int8_t>(output);
             const int8_t *filter_data = tflite::micro::GetTensorData<int8_t>(filter);
 
+#if defined(ESP_NN_HAS_FC_S8_BATCH)
+            // A sequence/attention FC has `batches` rows (e.g. time frames)
+            // sharing one filter. Calling the per-row kernel once per row
+            // re-walks the whole filter every time (weight-streaming). The
+            // batched kernel runs one weight-stationary GEMM instead: filter
+            // rows stay cache-resident across rows and the per-channel
+            // correction prepass runs once. Bit-identical result.
+            esp_nn_fully_connected_per_ch_s8_batch(input_data, -data.input_zero_point,
+                                        accum_depth,
+                                        filter_data, -data.filter_zero_point,
+                                        bias_data, output_data, output_depth,
+                                        data.output_zero_point,
+                                        data.per_channel_output_shift, data.per_channel_output_multiplier,
+                                        data.output_activation_min,
+                                        data.output_activation_max, batches);
+#else
             for (int b = 0; b < batches; ++b) {
               esp_nn_fully_connected_per_ch_s8(input_data, -data.input_zero_point,
                                         accum_depth,
@@ -187,6 +203,7 @@ TfLiteStatus FullyConnectedEval(TfLiteContext* context, TfLiteNode* node) {
               input_data += accum_depth;
               output_data += output_depth;
             }
+#endif
 #else
             tflite::micro::reference_integer_ops::FullyConnectedPerChannel(
                 FullyConnectedParamsQuantized(data),
