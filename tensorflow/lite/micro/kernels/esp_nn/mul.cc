@@ -28,6 +28,12 @@ limitations under the License.
 
 #if ESP_NN
 #include <esp_nn.h>
+#if defined(__has_include)
+#if __has_include(<esp_nn_multicore.h>)
+#include <esp_nn_multicore.h>
+#define ESP_NN_HAVE_MULTICORE 1
+#endif
+#endif
 #endif
 
 #include <esp_timer.h>
@@ -55,6 +61,73 @@ void MulEvalQuantized(TfLiteContext* context, TfLiteNode* node,
       tflite::micro::GetTensorShape(input2), &op_params);
 
   if (need_broadcast) {
+    // Channel-vector broadcast (e.g. squeeze-excite gating):
+    // [N,H,W,C] * [1,..,1,C]. Same per-element arithmetic as
+    // BroadcastMul4DSlow (bit-exact), with flat iteration instead of the
+    // N-D descriptor walk, split across both cores when available.
+    const RuntimeShape sh1 = tflite::micro::GetTensorShape(input1);
+    const RuntimeShape sh2 = tflite::micro::GetTensorShape(input2);
+    const RuntimeShape sho = tflite::micro::GetTensorShape(output);
+    const int8_t* d1 = tflite::micro::GetTensorData<int8_t>(input1);
+    const int8_t* d2 = tflite::micro::GetTensorData<int8_t>(input2);
+    const bool vec_is_2 = (sh2.FlatSize() == sho.Dims(sho.DimensionsCount() - 1)) &&
+                          (sh1.FlatSize() == sho.FlatSize());
+    const bool vec_is_1 = (sh1.FlatSize() == sho.Dims(sho.DimensionsCount() - 1)) &&
+                          (sh2.FlatSize() == sho.FlatSize());
+    if (vec_is_2 || vec_is_1) {
+      const int8_t* big = vec_is_2 ? d1 : d2;
+      const int8_t* vec = vec_is_2 ? d2 : d1;
+      const int32_t big_off = vec_is_2 ? op_params.input1_offset : op_params.input2_offset;
+      const int32_t vec_off = vec_is_2 ? op_params.input2_offset : op_params.input1_offset;
+      const int ch = sho.Dims(sho.DimensionsCount() - 1);
+      const int positions = sho.FlatSize() / ch;
+      int8_t* out_data = tflite::micro::GetTensorData<int8_t>(output);
+      struct BcastMulJob {
+        const int8_t *big, *vec;
+        int8_t* out;
+        int positions, ch;
+        int32_t big_off, vec_off, out_off, out_mult, out_shift, act_min, act_max;
+        static void Run(void* p) {
+          const BcastMulJob* j = static_cast<const BcastMulJob*>(p);
+          const int8_t* bp = j->big;
+          int8_t* op = j->out;
+          for (int pos = 0; pos < j->positions; ++pos) {
+            for (int c = 0; c < j->ch; ++c) {
+              const int32_t v = (bp[c] + j->big_off) * (j->vec[c] + j->vec_off);
+              int32_t r = MultiplyByQuantizedMultiplier(v, j->out_mult, j->out_shift) +
+                          j->out_off;
+              r = std::min(std::max(r, j->act_min), j->act_max);
+              op[c] = static_cast<int8_t>(r);
+            }
+            bp += j->ch;
+            op += j->ch;
+          }
+        }
+      };
+      BcastMulJob job = {big, vec, out_data, positions, ch,
+                         big_off, vec_off, op_params.output_offset,
+                         op_params.output_multiplier, op_params.output_shift,
+                         op_params.quantized_activation_min,
+                         op_params.quantized_activation_max};
+#ifdef ESP_NN_HAVE_MULTICORE
+      if (esp_nn_dual_core_active() && positions * ch >= 8192) {
+        const int p0 = positions / 2;
+        BcastMulJob wjob = job;
+        wjob.positions = p0;
+        if (esp_nn_dual_core_run(BcastMulJob::Run, &wjob)) {
+          BcastMulJob rest = job;
+          rest.big += p0 * ch;
+          rest.out += p0 * ch;
+          rest.positions = positions - p0;
+          BcastMulJob::Run(&rest);
+          esp_nn_dual_core_wait();
+          return;
+        }
+      }
+#endif  // ESP_NN_HAVE_MULTICORE
+      BcastMulJob::Run(&job);
+      return;
+    }
     reference_integer_ops::BroadcastMul4DSlow(
         op_params, tflite::micro::GetTensorShape(input1),
         tflite::micro::GetTensorData<int8_t>(input1),

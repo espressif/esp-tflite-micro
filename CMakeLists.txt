@@ -61,18 +61,20 @@ set(signal_srcs
           "${signal_dir}/src/kiss_fft_wrappers/kiss_fft_int16.cc"
           "${signal_dir}/src/kiss_fft_wrappers/kiss_fft_int32.cc")
 
-# remove sources which will be provided by esp_nn
-list(REMOVE_ITEM srcs_kernels
-          "${tfmicro_kernels_dir}/add.cc"
-          "${tfmicro_kernels_dir}/conv.cc"
-          "${tfmicro_kernels_dir}/depthwise_conv.cc"
-          "${tfmicro_kernels_dir}/fully_connected.cc"
-          "${tfmicro_kernels_dir}/mul.cc"
-          "${tfmicro_kernels_dir}/pooling.cc"
-          "${tfmicro_kernels_dir}/softmax.cc")
-
-FILE(GLOB esp_nn_kernels
-          "${tfmicro_kernels_dir}/esp_nn/*.cc")
+# remove sources which will be provided by esp_nn.
+# ESP_NN_BISECT_REF (debug aid): semicolon list of kernel basenames to keep
+# on the TFLM reference implementation instead of the esp_nn one.
+set(esp_nn_kernel_names add batch_matmul conv depthwise_conv fully_connected
+    hard_swish logistic quantize mul pad pooling reduce softmax transpose)
+FILE(GLOB esp_nn_kernels "${tfmicro_kernels_dir}/esp_nn/*.cc")
+foreach(k ${esp_nn_kernel_names})
+    if(DEFINED ESP_NN_BISECT_REF AND "${k}" IN_LIST ESP_NN_BISECT_REF)
+        list(REMOVE_ITEM esp_nn_kernels "${tfmicro_kernels_dir}/esp_nn/${k}.cc")
+        message(STATUS "esp-nn bisect: ${k} on TFLM reference")
+    else()
+        list(REMOVE_ITEM srcs_kernels "${tfmicro_kernels_dir}/${k}.cc")
+    endif()
+endforeach()
 
 set(lib_srcs
           "${srcs_micro}"
@@ -134,7 +136,10 @@ endif()
 # the esp_nn/ kernels are still compiled but fall back to TFLite Micro's
 # reference implementations internally (their #if ESP_NN paths compile out),
 # so no application or example code needs to change.
-if(CONFIG_ESP_TFLITE_MICRO_USE_ESP_NN)
+# -DESP_NN_OFF_PROBE=1 on the CMake command line forces the same
+# pure-reference build regardless of Kconfig: the ground truth that the
+# esp_nn kernels are diffed against.
+if(CONFIG_ESP_TFLITE_MICRO_USE_ESP_NN AND NOT DEFINED ESP_NN_OFF_PROBE)
     target_compile_options(${COMPONENT_LIB} PRIVATE -DESP_NN)
 endif()
 

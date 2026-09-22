@@ -150,10 +150,18 @@ static TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
 
 #if ESP_NN
   if (output->type == kTfLiteInt8 && input->type == kTfLiteInt8) {
-    const int32_t input_width = input->dims->data[1];
-    const int32_t input_height = input->dims->data[2];
-    int scratch_buf_size = esp_nn_get_softmax_scratch_size(input_width,
-                                                           input_height);
+    // Softmax runs over the LAST dimension: the kernel needs depth (its
+    // "width") elements of scratch per row. Sizing from dims[1]/dims[2]
+    // under-allocated for tensors whose trailing dim exceeds dims[1]
+    // (e.g. yolo11n's [1, 4, 756, 16] DFL softmax) and the kernel then
+    // wrote past its arena slice.
+    const int32_t depth = input->dims->data[input->dims->size - 1];
+    int32_t outer_size = 1;
+    for (int i = 0; i < input->dims->size - 1; i++) {
+      outer_size *= input->dims->data[i];
+    }
+    int scratch_buf_size = esp_nn_get_softmax_scratch_size(depth,
+                                                           outer_size);
     if (scratch_buf_size > 0) {
       TF_LITE_ENSURE_STATUS(context->RequestScratchBufferInArena(
         context, scratch_buf_size, &data->buffer_idx));
