@@ -69,10 +69,25 @@ list(REMOVE_ITEM srcs_kernels
           "${tfmicro_kernels_dir}/fully_connected.cc"
           "${tfmicro_kernels_dir}/mul.cc"
           "${tfmicro_kernels_dir}/pooling.cc"
+          "${tfmicro_kernels_dir}/reduce.cc"
           "${tfmicro_kernels_dir}/softmax.cc")
 
 FILE(GLOB esp_nn_kernels
           "${tfmicro_kernels_dir}/esp_nn/*.cc")
+# remove sources which will be provided by esp_nn.
+# ESP_NN_BISECT_REF (debug aid): semicolon list of kernel basenames to keep
+# on the TFLM reference implementation instead of the esp_nn one.
+set(esp_nn_kernel_names add batch_matmul conv depthwise_conv fully_connected
+    hard_swish logistic quantize mul pad pooling reduce softmax transpose)
+FILE(GLOB esp_nn_kernels "${tfmicro_kernels_dir}/esp_nn/*.cc")
+foreach(k ${esp_nn_kernel_names})
+    if(DEFINED ESP_NN_BISECT_REF AND "${k}" IN_LIST ESP_NN_BISECT_REF)
+        list(REMOVE_ITEM esp_nn_kernels "${tfmicro_kernels_dir}/esp_nn/${k}.cc")
+        message(STATUS "esp-nn bisect: ${k} on TFLM reference")
+    else()
+        list(REMOVE_ITEM srcs_kernels "${tfmicro_kernels_dir}/${k}.cc")
+    endif()
+endforeach()
 
 set(lib_srcs
           "${srcs_micro}"
