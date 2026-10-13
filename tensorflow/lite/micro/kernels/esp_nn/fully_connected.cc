@@ -25,6 +25,7 @@ limitations under the License.
 
 #if ESP_NN
 #include <esp_nn.h>
+#include "sdkconfig.h"
 #endif
 
 #include <esp_timer.h>
@@ -175,13 +176,17 @@ TfLiteStatus FullyConnectedEval(TfLiteContext* context, TfLiteNode* node) {
             int8_t *output_data = tflite::micro::GetTensorData<int8_t>(output);
             const int8_t *filter_data = tflite::micro::GetTensorData<int8_t>(filter);
 
-#if defined(ESP_NN_HAS_FC_S8_BATCH)
+#if defined(ESP_NN_HAS_FC_S8_BATCH) && CONFIG_IDF_TARGET_ESP32S3
             // A sequence/attention FC has `batches` rows (e.g. time frames)
             // sharing one filter. Calling the per-row kernel once per row
             // re-walks the whole filter every time (weight-streaming). The
             // batched kernel runs one weight-stationary GEMM instead: filter
             // rows stay cache-resident across rows and the per-channel
             // correction prepass runs once. Bit-identical result.
+            // ESP32-S3 only: esp-nn defines ESP_NN_HAS_FC_S8_BATCH on every
+            // target but maps it to an optimised kernel only on ESP32-S3; on
+            // the others it is the ANSI C kernel, slower than the per-row
+            // ESP32-P4 / S31 PIE kernel below.
             esp_nn_fully_connected_per_ch_s8_batch(input_data, -data.input_zero_point,
                                         accum_depth,
                                         filter_data, -data.filter_zero_point,
