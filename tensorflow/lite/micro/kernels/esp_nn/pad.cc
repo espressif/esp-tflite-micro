@@ -47,6 +47,10 @@ static bool PadSpatialFast(const tflite::micro::PadParams& p,
   const int32_t OH = out_shape.Dims(1), OW = out_shape.Dims(2);
   const int32_t pt = p.left_padding[1], pl = p.left_padding[2];
   const int32_t pb = p.right_padding[1];
+  // Sizes below are unsigned: leave negative paddings to the reference.
+  if (pt < 0 || pl < 0 || pb < 0 || p.right_padding[2] < 0) {
+    return false;
+  }
   const size_t in_row = (size_t)W * C;
   const size_t out_row = (size_t)OW * C;
   for (int32_t b = 0; b < B; b++) {

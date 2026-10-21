@@ -74,6 +74,11 @@ static TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
   const int filter_input_channels = filter->dims->data[3];
   TF_LITE_ENSURE(context, filter_input_channels > 0);
   TF_LITE_ENSURE_EQ(context, input_channels % filter_input_channels, 0);
+  // Grouped conv: every group needs the same number of output channels.
+  TF_LITE_ENSURE_EQ(context,
+                    output->dims->data[3] %
+                        (input_channels / filter_input_channels),
+                    0);
 
   TF_LITE_ENSURE_EQ(context, input->type, output->type);
   TF_LITE_ENSURE_MSG(
