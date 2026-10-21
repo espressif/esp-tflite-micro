@@ -219,7 +219,7 @@ inline void EvalQuantizedPerChannel(
     const int input_depth = input_shape.Dims(3);
     const int output_depth = MatchingDim(filter_shape, 0, output_shape, 3);
 
-    if (tflite::micro::GetTensorData<int8_t>(bias)) {
+    if (bias != nullptr) {
       TFLITE_DCHECK_EQ(bias_shape.FlatSize(), output_depth);
     }
 
@@ -259,7 +259,7 @@ inline void EvalQuantizedPerChannel(
     for (int i_batch = 0; i_batch < batch_size; i_batch++) {
       esp_nn_conv_s8(&input_dims, input_data + i_batch * input_size,
                      &filter_dims, tflite::micro::GetTensorData<int8_t>(filter),
-                     tflite::micro::GetTensorData<int32_t>(bias),
+                     tflite::micro::GetOptionalTensorData<int32_t>(bias),
                      &output_dims, output_data + i_batch * output_size,
                      &conv_params, &quant_data);
     }
@@ -273,7 +273,7 @@ inline void EvalQuantizedPerChannel(
         tflite::micro::GetTensorShape(filter),
         tflite::micro::GetTensorData<int8_t>(filter),
         tflite::micro::GetTensorShape(bias),
-        tflite::micro::GetTensorData<int32_t>(bias),
+        tflite::micro::GetOptionalTensorData<int32_t>(bias),
         tflite::micro::GetTensorShape(output),
         tflite::micro::GetTensorData<int8_t>(output));
   }
@@ -384,7 +384,7 @@ static TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
               tflite::micro::GetTensorShape(filter),
               tflite::micro::GetTensorData<int8_t>(filter),
               tflite::micro::GetTensorShape(bias),
-              tflite::micro::GetTensorData<int32_t>(bias),
+              tflite::micro::GetOptionalTensorData<int32_t>(bias),
               tflite::micro::GetTensorShape(output),
               tflite::micro::GetTensorData<int8_t>(output));
 #endif
