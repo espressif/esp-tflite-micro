@@ -63,4 +63,10 @@ find tensorflow third_party signal -type f \
     \( -name '*.h' -o -name '*.cc' -o -name '*.c' -o -name '*.hpp' \) \
     -exec chmod -x {} +
 
+# ...and occasionally a source without a final newline, which trips
+# pre-commit's end-of-file-fixer the same way
+find tensorflow third_party signal -type f \
+    \( -name '*.h' -o -name '*.cc' -o -name '*.c' -o -name '*.hpp' \) \
+    -size +0 -exec sh -c 'for f; do [ -z "$(tail -c 1 "$f")" ] || echo >> "$f"; done' sh {} +
+
 rm -rf "${TEMP_DIR}"
