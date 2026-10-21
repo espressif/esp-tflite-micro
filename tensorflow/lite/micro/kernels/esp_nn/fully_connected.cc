@@ -168,6 +168,24 @@ TfLiteStatus FullyConnectedEval(TfLiteContext* context, TfLiteNode* node) {
             TFLITE_DCHECK_LE(output_depth, filter_shape.Dims(filter_dim_count - 2));
             const int accum_depth = filter_shape.Dims(filter_dim_count - 1);
 
+            if (accum_depth > UINT16_MAX || output_depth > UINT16_MAX) {
+              // esp-nn's FC entry points take 16-bit sizes; larger layers
+              // run the reference kernel.
+              tflite::micro::reference_integer_ops::FullyConnectedPerChannel(
+                  FullyConnectedParamsQuantized(data),
+                  data.per_channel_output_multiplier,
+                  reinterpret_cast<const int*>(data.per_channel_output_shift),
+                  tflite::micro::GetTensorShape(input),
+                  tflite::micro::GetTensorData<int8_t>(input),
+                  tflite::micro::GetTensorShape(filter),
+                  tflite::micro::GetTensorData<int8_t>(filter),
+                  tflite::micro::GetTensorShape(bias),
+                  tflite::micro::GetOptionalTensorData<int32_t>(bias),
+                  tflite::micro::GetTensorShape(output),
+                  tflite::micro::GetTensorData<int8_t>(output));
+              break;
+            }
+
             const int32_t* bias_data =
                 tflite::micro::GetOptionalTensorData<int32_t>(bias);
 
@@ -214,6 +232,22 @@ TfLiteStatus FullyConnectedEval(TfLiteContext* context, TfLiteNode* node) {
             const int output_depth = output_shape.Dims(output_dim_count - 1);
             TFLITE_DCHECK_LE(output_depth, filter_shape.Dims(filter_dim_count - 2));
             const int accum_depth = filter_shape.Dims(filter_dim_count - 1);
+
+            if (accum_depth > UINT16_MAX || output_depth > UINT16_MAX) {
+              // esp-nn's FC entry points take 16-bit sizes; larger layers
+              // run the reference kernel.
+              tflite::micro::reference_integer_ops::FullyConnected(
+                  FullyConnectedParamsQuantized(data),
+                  tflite::micro::GetTensorShape(input),
+                  tflite::micro::GetTensorData<int8_t>(input),
+                  tflite::micro::GetTensorShape(filter),
+                  tflite::micro::GetTensorData<int8_t>(filter),
+                  tflite::micro::GetTensorShape(bias),
+                  tflite::micro::GetOptionalTensorData<int32_t>(bias),
+                  tflite::micro::GetTensorShape(output),
+                  tflite::micro::GetTensorData<int8_t>(output));
+              break;
+            }
 
             const int32_t* bias_data =
                 tflite::micro::GetOptionalTensorData<int32_t>(bias);
