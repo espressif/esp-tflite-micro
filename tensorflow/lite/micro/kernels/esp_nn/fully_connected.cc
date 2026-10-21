@@ -15,11 +15,11 @@ limitations under the License.
 
 #include "tensorflow/lite/micro/kernels/fully_connected.h"
 
-#include "tensorflow/lite/c/builtin_op_data.h"
-#include "tensorflow/lite/c/common.h"
-#include "tensorflow/lite/kernels/internal/portable_tensor_utils.h"
-#include "tensorflow/lite/kernels/internal/reference/fully_connected.h"
-#include "tensorflow/lite/kernels/internal/reference/integer_ops/fully_connected.h"
+#include "tensorflow/lite/micro/c/builtin_op_data.h"
+#include "tensorflow/lite/micro/c/common.h"
+#include "tensorflow/lite/micro/kernels/internal/portable_tensor_utils.h"
+#include "tensorflow/lite/micro/kernels/internal/reference/fully_connected.h"
+#include "tensorflow/lite/micro/kernels/internal/reference/integer_ops/fully_connected.h"
 #include "tensorflow/lite/micro/kernels/kernel_util.h"
 #include "tensorflow/lite/micro/micro_log.h"
 
@@ -32,6 +32,7 @@ limitations under the License.
 long long fc_total_time = 0;
 
 namespace tflite {
+namespace micro {
 namespace {
 
 void* FullyConnectedInit(TfLiteContext* context, const char* buffer,
@@ -119,7 +120,7 @@ TfLiteStatus FullyConnectedEval(TfLiteContext* context, TfLiteNode* node) {
   // Checks in Prepare ensure input, output and filter types are all the same.
   switch (input->type) {
     case kTfLiteFloat32: {
-      tflite::reference_ops::FullyConnected(
+      tflite::micro::reference_ops::FullyConnected(
           FullyConnectedParamsFloat(params->activation),
           tflite::micro::GetTensorShape(input),
           tflite::micro::GetTensorData<float>(input),
@@ -137,11 +138,11 @@ TfLiteStatus FullyConnectedEval(TfLiteContext* context, TfLiteNode* node) {
         case kTfLiteInt4: {
           int8_t* unpacked_filter_data = static_cast<int8_t*>(
               context->GetScratchBuffer(context, data.filter_buffer_index));
-          tflite::tensor_utils::UnpackDenseInt4IntoInt8(
+          tflite::micro::tensor_utils::UnpackDenseInt4IntoInt8(
               tflite::micro::GetTensorData<int8_t>(filter),
               tflite::micro::GetTensorShape(filter).FlatSize(),
               unpacked_filter_data);
-          tflite::reference_integer_ops::FullyConnected(
+          tflite::micro::reference_integer_ops::FullyConnected(
               FullyConnectedParamsQuantized(data),
               tflite::micro::GetTensorShape(input),
               tflite::micro::GetTensorData<int8_t>(input),
@@ -187,7 +188,7 @@ TfLiteStatus FullyConnectedEval(TfLiteContext* context, TfLiteNode* node) {
               output_data += output_depth;
             }
 #else
-            tflite::reference_integer_ops::FullyConnectedPerChannel(
+            tflite::micro::reference_integer_ops::FullyConnectedPerChannel(
                 FullyConnectedParamsQuantized(data),
                 data.per_channel_output_multiplier,
                 reinterpret_cast<const int*>(data.per_channel_output_shift),
@@ -234,7 +235,7 @@ TfLiteStatus FullyConnectedEval(TfLiteContext* context, TfLiteNode* node) {
               output_data += output_depth;
             }
 #else
-            tflite::reference_integer_ops::FullyConnected(
+            tflite::micro::reference_integer_ops::FullyConnected(
                 FullyConnectedParamsQuantized(data),
                 tflite::micro::GetTensorShape(input),
                 tflite::micro::GetTensorData<int8_t>(input),
@@ -260,7 +261,7 @@ TfLiteStatus FullyConnectedEval(TfLiteContext* context, TfLiteNode* node) {
     case kTfLiteInt16: {
       switch (filter->type) {
         case kTfLiteInt8: {
-          tflite::reference_integer_ops::FullyConnected(
+          tflite::micro::reference_integer_ops::FullyConnected(
               FullyConnectedParamsQuantized(data),
               tflite::micro::GetTensorShape(input),
               tflite::micro::GetTensorData<int16_t>(input),
@@ -302,4 +303,5 @@ TFLMInferenceRegistration RegisterInference_FULLY_CONNECTED() {
   return tflite::micro::RegisterOp(FullyConnectedEval);
 }
 
+}  // namespace micro
 }  // namespace tflite

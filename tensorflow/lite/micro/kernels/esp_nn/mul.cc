@@ -15,13 +15,13 @@ limitations under the License.
 
 #include "tensorflow/lite/micro/kernels/mul.h"
 
-#include "tensorflow/lite/c/common.h"
-#include "tensorflow/lite/kernels/internal/quantization_util.h"
-#include "tensorflow/lite/kernels/internal/reference/integer_ops/mul.h"
-#include "tensorflow/lite/kernels/internal/reference/mul.h"
-#include "tensorflow/lite/kernels/internal/reference/process_broadcast_shapes.h"
-#include "tensorflow/lite/kernels/internal/tensor_ctypes.h"
-#include "tensorflow/lite/kernels/kernel_util.h"
+#include "tensorflow/lite/micro/c/common.h"
+#include "tensorflow/lite/micro/kernels/internal/quantization_util.h"
+#include "tensorflow/lite/micro/kernels/internal/reference/integer_ops/mul.h"
+#include "tensorflow/lite/micro/kernels/internal/reference/mul.h"
+#include "tensorflow/lite/micro/kernels/internal/reference/process_broadcast_shapes.h"
+#include "tensorflow/lite/micro/kernels/internal/tensor_ctypes.h"
+#include "tensorflow/lite/micro/kernels/kernel_util.h"
 #include "tensorflow/lite/micro/kernels/kernel_util.h"
 #include "tensorflow/lite/micro/memory_helpers.h"
 #include "tensorflow/lite/micro/micro_log.h"
@@ -41,12 +41,13 @@ limitations under the License.
 long long mul_total_time = 0;
 
 namespace tflite {
+namespace micro {
 #if ESP_NN
 void MulEvalQuantized(TfLiteContext* context, TfLiteNode* node,
                       const OpDataMul* data, const TfLiteEvalTensor* input1,
                       const TfLiteEvalTensor* input2,
                       TfLiteEvalTensor* output) {
-  tflite::ArithmeticParams op_params = {};
+  tflite::micro::ArithmeticParams op_params = {};
   op_params.quantized_activation_min = data->output_activation_min;
   op_params.quantized_activation_max = data->output_activation_max;
   op_params.float_activation_max = data->output_activation_max_f32;
@@ -195,4 +196,5 @@ TFLMRegistration Register_MUL() {
   return tflite::micro::RegisterOp(MulInit, MulPrepare, MulEval);
 }
 
+}  // namespace micro
 }  // namespace tflite

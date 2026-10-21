@@ -14,15 +14,16 @@ limitations under the License.
 ==============================================================================*/
 #include <string.h>
 
-#include "tensorflow/lite/kernels/internal/reference/transpose.h"
+#include "tensorflow/lite/micro/kernels/internal/reference/transpose.h"
 
-#include "tensorflow/lite/c/common.h"
-#include "tensorflow/lite/kernels/kernel_util.h"
+#include "tensorflow/lite/micro/c/common.h"
+#include "tensorflow/lite/micro/kernels/kernel_util.h"
 #include "tensorflow/lite/micro/kernels/kernel_util.h"
 #include "tensorflow/lite/micro/kernels/transpose.h"
 #include "tensorflow/lite/micro/micro_log.h"
 
 namespace tflite {
+namespace micro {
 namespace {
 
 
@@ -145,4 +146,5 @@ TfLiteStatus TransposeEval(TfLiteContext* context, TfLiteNode* node) {
 TFLMRegistration Register_TRANSPOSE() {
   return tflite::micro::RegisterOp(nullptr, TransposePrepare, TransposeEval);
 }
+}  // namespace micro
 }  // namespace tflite

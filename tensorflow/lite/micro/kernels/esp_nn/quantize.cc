@@ -19,10 +19,10 @@ limitations under the License.
 // construction), split across both cores. Everything else falls through to
 // the shared reference eval.
 
-#include "tensorflow/lite/c/common.h"
-#include "tensorflow/lite/kernels/internal/quantization_util.h"
-#include "tensorflow/lite/kernels/internal/reference/quantize.h"
-#include "tensorflow/lite/kernels/internal/reference/requantize.h"
+#include "tensorflow/lite/micro/c/common.h"
+#include "tensorflow/lite/micro/kernels/internal/quantization_util.h"
+#include "tensorflow/lite/micro/kernels/internal/reference/quantize.h"
+#include "tensorflow/lite/micro/kernels/internal/reference/requantize.h"
 #include "tensorflow/lite/micro/kernels/kernel_util.h"
 #include "tensorflow/lite/micro/kernels/quantize.h"
 #include "tensorflow/lite/micro/micro_log.h"
@@ -38,6 +38,7 @@ limitations under the License.
 #endif
 
 namespace tflite {
+namespace micro {
 namespace {
 
 #if ESP_NN
@@ -167,4 +168,5 @@ TFLMRegistration Register_QUANTIZE() {
 #endif
 }
 
+}  // namespace micro
 }  // namespace tflite

@@ -19,16 +19,16 @@ limitations under the License.
 // construction) and streams the tensor through it, optionally split across
 // both cores through the ESP-NN dual-core worker.
 
-#include "tensorflow/lite/kernels/internal/reference/hard_swish.h"
+#include "tensorflow/lite/micro/kernels/internal/reference/hard_swish.h"
 
-#include "tensorflow/lite/c/builtin_op_data.h"
-#include "tensorflow/lite/c/common.h"
-#include "tensorflow/lite/kernels/internal/common.h"
-#include "tensorflow/lite/kernels/internal/quantization_util.h"
-#include "tensorflow/lite/kernels/internal/tensor_ctypes.h"
-#include "tensorflow/lite/kernels/internal/types.h"
-#include "tensorflow/lite/kernels/kernel_util.h"
-#include "tensorflow/lite/kernels/op_macros.h"
+#include "tensorflow/lite/micro/c/builtin_op_data.h"
+#include "tensorflow/lite/micro/c/common.h"
+#include "tensorflow/lite/micro/kernels/internal/common.h"
+#include "tensorflow/lite/micro/kernels/internal/quantization_util.h"
+#include "tensorflow/lite/micro/kernels/internal/tensor_ctypes.h"
+#include "tensorflow/lite/micro/kernels/internal/types.h"
+#include "tensorflow/lite/micro/kernels/kernel_util.h"
+#include "tensorflow/lite/micro/kernels/op_macros.h"
 #include "tensorflow/lite/micro/kernels/hard_swish.h"
 #include "tensorflow/lite/micro/kernels/kernel_util.h"
 #include "tensorflow/lite/micro/micro_log.h"
@@ -44,6 +44,7 @@ limitations under the License.
 #endif
 
 namespace tflite {
+namespace micro {
 namespace {
 
 #if ESP_NN
@@ -65,7 +66,7 @@ void* HardSwishInit(TfLiteContext* context, const char* buffer, size_t length) {
 
 #if ESP_NN
 TfLiteStatus HardSwishPrepareLut(TfLiteContext* context, TfLiteNode* node) {
-  TfLiteStatus status = tflite::HardSwishPrepare(context, node);
+  TfLiteStatus status = tflite::micro::HardSwishPrepare(context, node);
   if (status != kTfLiteOk) {
     return status;
   }
@@ -79,7 +80,7 @@ TfLiteStatus HardSwishPrepareLut(TfLiteContext* context, TfLiteNode* node) {
       lut_in[i] = (int8_t)(i - 128);
     }
     const RuntimeShape lut_shape(1, 256);
-    tflite::reference_ops::HardSwish<int8_t>(d->params, lut_shape, lut_in,
+    tflite::micro::reference_ops::HardSwish<int8_t>(d->params, lut_shape, lut_in,
                                              lut_shape, d->lut);
     d->lut_valid = true;
   }
@@ -136,7 +137,7 @@ TfLiteStatus HardSwishEval(TfLiteContext* context, TfLiteNode* node) {
 
   switch (input->type) {
     case kTfLiteFloat32: {
-      tflite::reference_ops::HardSwish<float>(
+      tflite::micro::reference_ops::HardSwish<float>(
           tflite::micro::GetTensorShape(input),
           tflite::micro::GetTensorData<float>(input),
           tflite::micro::GetTensorShape(output),
@@ -168,10 +169,10 @@ TfLiteStatus HardSwishEval(TfLiteContext* context, TfLiteNode* node) {
         break;
       }
       const RuntimeShape flat_shape(1, flat_size);
-      tflite::reference_ops::HardSwish<int8_t>(d->params, flat_shape, in_data,
+      tflite::micro::reference_ops::HardSwish<int8_t>(d->params, flat_shape, in_data,
                                                flat_shape, out_data);
 #else
-      tflite::reference_ops::HardSwish<int8_t>(
+      tflite::micro::reference_ops::HardSwish<int8_t>(
           *params, tflite::micro::GetTensorShape(input),
           tflite::micro::GetTensorData<int8_t>(input),
           tflite::micro::GetTensorShape(output),
@@ -193,9 +194,10 @@ TFLMRegistration Register_HARD_SWISH() {
   return tflite::micro::RegisterOp(HardSwishInit, HardSwishPrepareLut,
                                    HardSwishEval);
 #else
-  return tflite::micro::RegisterOp(HardSwishInit, tflite::HardSwishPrepare,
+  return tflite::micro::RegisterOp(HardSwishInit, tflite::micro::HardSwishPrepare,
                                    HardSwishEval);
 #endif
 }
 
+}  // namespace micro
 }  // namespace tflite

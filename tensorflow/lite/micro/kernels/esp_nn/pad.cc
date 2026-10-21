@@ -12,27 +12,28 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
-#include "tensorflow/lite/kernels/internal/reference/pad.h"
+#include "tensorflow/lite/micro/kernels/internal/reference/pad.h"
 
 #include <string.h>
 
-#include "tensorflow/lite/c/common.h"
-#include "tensorflow/lite/kernels/kernel_util.h"
+#include "tensorflow/lite/micro/c/common.h"
+#include "tensorflow/lite/micro/kernels/kernel_util.h"
 #include "tensorflow/lite/micro/kernels/kernel_util.h"
 #include "tensorflow/lite/micro/kernels/pad.h"
 #include "tensorflow/lite/micro/micro_log.h"
 
 namespace tflite {
+namespace micro {
 namespace {
 
 
 #if ESP_NN
 // Espressif fast path: 4D pads that only touch the spatial dims reduce to
 // per-row memset/memcpy. Values are identical to the reference element walk.
-static bool PadSpatialFast(const tflite::PadParams& p,
-                           const tflite::RuntimeShape& in_shape,
+static bool PadSpatialFast(const tflite::micro::PadParams& p,
+                           const tflite::micro::RuntimeShape& in_shape,
                            const int8_t* in, int8_t pad_value,
-                           const tflite::RuntimeShape& out_shape, int8_t* out) {
+                           const tflite::micro::RuntimeShape& out_shape, int8_t* out) {
   if (in_shape.DimensionsCount() != 4 || p.left_padding_count != 4 ||
       p.right_padding_count != 4) {
     return false;
@@ -166,4 +167,5 @@ TFLMRegistration Register_PADV2() {
   return tflite::micro::RegisterOp(PadInit, PadPrepare, PadEval);
 }
 
+}  // namespace micro
 }  // namespace tflite
