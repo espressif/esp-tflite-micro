@@ -15,14 +15,14 @@ limitations under the License.
 
 #include "tensorflow/lite/micro/kernels/softmax.h"
 
-#include "tensorflow/lite/c/builtin_op_data.h"
-#include "tensorflow/lite/c/common.h"
-#include "tensorflow/lite/kernels/internal/common.h"
-#include "tensorflow/lite/kernels/internal/quantization_util.h"
-#include "tensorflow/lite/kernels/internal/reference/softmax.h"
-#include "tensorflow/lite/kernels/internal/tensor_ctypes.h"
-#include "tensorflow/lite/kernels/kernel_util.h"
-#include "tensorflow/lite/kernels/op_macros.h"
+#include "tensorflow/lite/micro/c/builtin_op_data.h"
+#include "tensorflow/lite/micro/c/common.h"
+#include "tensorflow/lite/micro/kernels/internal/common.h"
+#include "tensorflow/lite/micro/kernels/internal/quantization_util.h"
+#include "tensorflow/lite/micro/kernels/internal/reference/softmax.h"
+#include "tensorflow/lite/micro/kernels/internal/tensor_ctypes.h"
+#include "tensorflow/lite/micro/kernels/kernel_util.h"
+#include "tensorflow/lite/micro/kernels/op_macros.h"
 #include "tensorflow/lite/micro/kernels/kernel_util.h"
 #include "tensorflow/lite/micro/micro_log.h"
 
@@ -35,6 +35,7 @@ limitations under the License.
 long long softmax_total_time = 0;
 
 namespace tflite {
+namespace micro {
 namespace {
 // Softmax parameter data that persists in user_data
 const int kInt16LUTArraySize = 513;
@@ -55,7 +56,7 @@ void SoftmaxQuantized(TfLiteContext* context, const TfLiteEvalTensor* input,
                       TfLiteEvalTensor* output, const NodeData* data) {
   if (input->type == kTfLiteInt8) {
     if (output->type == kTfLiteInt16) {
-      tflite::reference_ops::Softmax(
+      tflite::micro::reference_ops::Softmax(
           data->op_data, tflite::micro::GetTensorShape(input),
           tflite::micro::GetTensorData<int8_t>(input),
           tflite::micro::GetTensorShape(output),
@@ -82,7 +83,7 @@ void SoftmaxQuantized(TfLiteContext* context, const TfLiteEvalTensor* input,
       esp_nn_softmax_s8(in_ptr, outer_size, depth, input_beta_multiplier,
                         input_beta_left_shift, diff_min, out_ptr);
 #else
-      tflite::reference_ops::Softmax(
+      tflite::micro::reference_ops::Softmax(
           data->op_data, tflite::micro::GetTensorShape(input),
           tflite::micro::GetTensorData<int8_t>(input),
           tflite::micro::GetTensorShape(output),
@@ -90,7 +91,7 @@ void SoftmaxQuantized(TfLiteContext* context, const TfLiteEvalTensor* input,
 #endif
     }
   } else {
-    tflite::reference_ops::SoftmaxInt16(
+    tflite::micro::reference_ops::SoftmaxInt16(
         data->op_data, tflite::micro::GetTensorShape(input),
         tflite::micro::GetTensorData<int16_t>(input),
         tflite::micro::GetTensorShape(output),
@@ -108,7 +109,7 @@ static TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
   long long start_time = esp_timer_get_time();
   switch (input->type) {
     case kTfLiteFloat32: {
-      tflite::reference_ops::Softmax(
+      tflite::micro::reference_ops::Softmax(
           data.op_data, tflite::micro::GetTensorShape(input),
           tflite::micro::GetTensorData<float>(input),
           tflite::micro::GetTensorShape(output),
@@ -182,4 +183,5 @@ TFLMRegistration Register_SOFTMAX() {
   return tflite::micro::RegisterOp(Init, Prepare, Eval);
 }
 
+}  // namespace micro
 }  // namespace tflite

@@ -17,9 +17,11 @@ limitations under the License.
 #include "tensorflow/lite/micro/micro_time.h"
 
 namespace tflite {
+namespace micro {
 
 uint32_t ticks_per_second() { return 1000000; }
 
 uint32_t GetCurrentTimeTicks() { return esp_timer_get_time(); }
 
+}  // namespace micro
 }  // namespace tflite

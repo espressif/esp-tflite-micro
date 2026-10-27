@@ -15,11 +15,11 @@ limitations under the License.
 
 #include "tensorflow/lite/micro/kernels/conv.h"
 
-#include "tensorflow/lite/c/builtin_op_data.h"
-#include "tensorflow/lite/kernels/internal/portable_tensor_utils.h"
-#include "tensorflow/lite/kernels/internal/reference/conv.h"
-#include "tensorflow/lite/kernels/internal/reference/integer_ops/conv.h"
-#include "tensorflow/lite/kernels/kernel_util.h"
+#include "tensorflow/lite/micro/c/builtin_op_data.h"
+#include "tensorflow/lite/micro/kernels/internal/portable_tensor_utils.h"
+#include "tensorflow/lite/micro/kernels/internal/reference/conv.h"
+#include "tensorflow/lite/micro/kernels/internal/reference/integer_ops/conv.h"
+#include "tensorflow/lite/micro/kernels/kernel_util.h"
 #include "tensorflow/lite/micro/micro_common.h"
 #include "tensorflow/lite/micro/kernels/kernel_util.h"
 #include "tensorflow/lite/micro/micro_log.h"
@@ -34,6 +34,7 @@ limitations under the License.
 long long conv_total_time = 0;
 
 namespace tflite {
+namespace micro {
 namespace {
 
 struct NodeData {
@@ -300,7 +301,7 @@ static TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
   long long start_time = esp_timer_get_time();
   switch (input->type) {  // Already know in/out types are same.
     case kTfLiteFloat32: {
-      tflite::reference_ops::Conv(
+      tflite::micro::reference_ops::Conv(
           ConvParamsFloat(params, data.op_data),
           tflite::micro::GetTensorShape(input),
           tflite::micro::GetTensorData<float>(input),
@@ -352,7 +353,7 @@ static TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
         case kTfLiteInt4: {
           int8_t* unpacked_filter_data = static_cast<int8_t*>(
               context->GetScratchBuffer(context, data.op_data.filter_buffer_index));
-          tflite::tensor_utils::UnpackDenseInt4IntoInt8(
+          tflite::micro::tensor_utils::UnpackDenseInt4IntoInt8(
               tflite::micro::GetTensorData<int8_t>(filter),
               tflite::micro::GetTensorShape(filter).FlatSize(),
               unpacked_filter_data);
@@ -413,4 +414,5 @@ TFLMRegistration Register_CONV_2D() {
   return tflite::micro::RegisterOp(Init, Prepare, Eval);
 }
 
+}  // namespace micro
 }  // namespace tflite
