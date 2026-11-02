@@ -9,8 +9,9 @@ dependencies:
   idf:
     version: ">=5.1"
   espressif/esp-nn:
-    # >=1.3.0: grouped-conv support the conv wrapper now relies on
-    version: ">=1.3.0"
+    # >=1.4.2: the batched per-channel FC on ESP32-S3 without a stack array
+    # sized by the output channels
+    version: ">=1.4.2"
 files:
   exclude:
     - scripts
