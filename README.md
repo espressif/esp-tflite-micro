@@ -124,11 +124,10 @@ Note:
   - The above is time taken for execution of the `invoke()` call
   - Internal memory used
   - ESP32-P4 optimisation is work in progress
-  - `Without ESP-NN` case is when `esp-nn` is completely disabled by removing below flag from [CMakeLists.txt](CMakeLists.txt):
-    ```cmake
-      # enable ESP-NN optimizations by Espressif
-      target_compile_options(${COMPONENT_LIB} PRIVATE -DESP_NN)
-    ```
+  - `Without ESP-NN` is with esp-nn turned off, so TFLite Micro's reference
+    kernels run. Turn off "Use ESP-NN optimized kernels" in `idf.py menuconfig`
+    (under `ESP TFLite-Micro`), or set `CONFIG_ESP_TFLITE_MICRO_USE_ESP_NN=n` in
+    `sdkconfig`.
 
 Detailed kernelwise performance can be found [here](https://github.com/espressif/esp-nn).
 
