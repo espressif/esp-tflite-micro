@@ -82,7 +82,6 @@ set(lib_srcs
           "${tfmicro_kernels_dir}/internal/common.cc"
           "${tfmicro_kernels_dir}/internal/portable_tensor_utils.cc"
           "${tfmicro_kernels_dir}/internal/quantization_util.cc"
-          "${tfmicro_kernels_dir}/internal/runtime_shape.cc"
           "${tfmicro_kernels_dir}/internal/tensor_ctypes.cc")
 
 set(priv_req)
