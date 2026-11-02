@@ -1,4 +1,4 @@
-version: "1.4.2"
+version: "1.4.3"
 description: TensorFlow Lite Micro component for ESP-IDF
 url: https://github.com/espressif/esp-tflite-micro
 repository: https://github.com/espressif/esp-tflite-micro.git
