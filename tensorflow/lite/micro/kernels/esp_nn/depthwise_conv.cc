@@ -196,6 +196,15 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
   const int num_input_channels = input->dims->data[3];
   TF_LITE_ENSURE(context, num_input_channels != 0);
   TF_LITE_ENSURE_EQ(context, num_filter_channels % num_input_channels, 0);
+  // Eval and the esp-nn kernels index the filter, the bias, the per-channel
+  // quantization arrays and the output by input_channels * depth_multiplier.
+  // Require the model's tensor shapes to agree with that, so a model that
+  // declares otherwise is rejected here instead of relying on the
+  // TFLITE_DCHECK in Eval, which is compiled out in release builds.
+  TF_LITE_ENSURE(context, params.depth_multiplier > 0);
+  TF_LITE_ENSURE_EQ(context, num_filter_channels,
+                    num_input_channels * params.depth_multiplier);
+  TF_LITE_ENSURE_EQ(context, output->dims->data[3], num_filter_channels);
 
   const int input_width = input->dims->data[2];
   const int input_height = input->dims->data[1];
