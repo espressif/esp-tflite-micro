@@ -60,9 +60,8 @@ struct StridedSliceContext {
   int dims;
 };
 
-// This Op only supports 1-4D cases and since we use the reference 4D
-// implementation, the 1-3D tensors are mapped to 4D.
-const int kMaxDim = 4;
+// Reference strided slice accepts up to 5D. DeiT's Q/K/V split is 5D.
+const int kMaxDim = 5;
 
 tflite::micro::StridedSliceParams BuildStridedSliceParams(
     StridedSliceContext* op_context) {

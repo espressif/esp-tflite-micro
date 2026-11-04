@@ -186,6 +186,9 @@ TfLiteStatus ParseFullyConnected(const Operator* op,
                                  BuiltinDataAllocator* allocator,
                                  void** builtin_data);
 
+TfLiteStatus ParseGelu(const Operator* op, BuiltinDataAllocator* allocator,
+                       void** builtin_data);
+
 TfLiteStatus ParseGather(const Operator* op, BuiltinDataAllocator* allocator,
                          void** builtin_data);
 
@@ -475,6 +478,7 @@ using micro::ParseFloor;
 using micro::ParseFloorDiv;
 using micro::ParseFloorMod;
 using micro::ParseFullyConnected;
+using micro::ParseGelu;
 using micro::ParseGather;
 using micro::ParseGatherNd;
 using micro::ParseGreater;

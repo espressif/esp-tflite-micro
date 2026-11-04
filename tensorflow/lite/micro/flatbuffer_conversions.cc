@@ -2038,6 +2038,24 @@ TfLiteStatus ParseSvdf(const Operator* op, BuiltinDataAllocator* allocator,
 TfLiteStatus ParseTanh(const Operator*, BuiltinDataAllocator*, void**) {
   return kTfLiteOk;
 }
+
+TfLiteStatus ParseGelu(const Operator* op, BuiltinDataAllocator* allocator,
+                       void** builtin_data) {
+  CheckParsePointerParams(op, allocator, builtin_data);
+
+  SafeBuiltinDataAllocator safe_allocator(allocator);
+  auto params = safe_allocator.Allocate<TfLiteGeluParams>();
+  if (params == nullptr) {
+    MicroPrintf("Failed to allocate memory for builtin_data\n");
+    return kTfLiteError;
+  }
+  params->approximate = false;
+  if (const auto* gelu_params = op->builtin_options_as_GeluOptions()) {
+    params->approximate = gelu_params->approximate();
+  }
+  *builtin_data = params.release();
+  return kTfLiteOk;
+}
 //
 // We have this parse function instead of directly returning kTfLiteOk from the
 // switch-case in ParseOpData because this function is used as part of the
