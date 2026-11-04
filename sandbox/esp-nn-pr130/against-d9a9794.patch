@@ -1,0 +1,352 @@
+diff --git a/src/convolution/esp_nn_conv_riscv_pie.c b/src/convolution/esp_nn_conv_riscv_pie.c
+index 3751311..b8b3a78 100644
+--- a/src/convolution/esp_nn_conv_riscv_pie.c
++++ b/src/convolution/esp_nn_conv_riscv_pie.c
+@@ -71,6 +71,14 @@ void esp_nn_conv_s8_riscv_pie(const data_dims_t *input_dims,
+                               const quant_data_t *quant_data);
+ 
+ static int16_t *scratch_buffer = NULL;
++/* Per-pixel accumulator addend for a fully connected weight zero-point.
++ * NULL on the weight-zero-point-0 path. Indexed by the pixel this call owns. */
++static const int32_t *fc_row_addend = NULL;
++
++void esp_nn_conv_set_row_addend_riscv_pie(const int32_t *row_addend)
++{
++    fc_row_addend = row_addend;
++}
+ 
+ /*
+  * XACC dot of `rows` filter rows against strided input rows, double-buffered
+@@ -273,7 +281,8 @@ static void conv_1x1_batch16(const int8_t *pixel_ptrs[16],
+                       int32_t in_ch, int32_t out_ch,
+                       int32_t out_offset,
+                       const int32_t *out_mult, const int32_t *out_shift,
+-                      int32_t act_min, int32_t act_max)
++                      int32_t act_min, int32_t act_max,
++                      const int32_t *row_addend)
+ {
+     /* Transpose: arrange 16 pixels' data as ch0[p0..p15], ch1[p0..p15], ... */
+     int8_t transposed[16 * 16] __attribute__((aligned(16)));  /* in_ch <= 16 for this path */
+@@ -329,6 +338,9 @@ static void conv_1x1_batch16(const int8_t *pixel_ptrs[16],
+ 
+         for (int p = 0; p < 16; p++) {
+             int32_t r = results[p] + combined;
++            if (row_addend != NULL) {
++                r += row_addend[p];
++            }
+             r = esp_nn_multiply_by_quantized_mult(r, m, s);
+             r += out_offset;
+             r = max(r, act_min);
+@@ -524,13 +536,13 @@ static void qacc16_run_channels(const int8_t *t, const int8_t *filt_base,
+                                 const int32_t *out_shift, int8_t *out_base,
+                                 int32_t out_stride, int32_t out_offset,
+                                 int32_t act_min, int32_t act_max,
+-                                int32_t lanes)
++                                int32_t lanes, const int32_t *row_addend)
+ {
+     const int8_t *filt = filt_base;
+ 
+     /* The woven requant writes all 16 lanes, so partial batches take the
+      * plain path (which stores `lanes` results). */
+-    if (lanes == 16 && (count & 7) == 0 && count >= 128) {
++    if (row_addend == NULL && lanes == 16 && (count & 7) == 0 && count >= 128) {
+         bool woven_ok = true;
+         const int32_t acc_bound = count * 127 * 128;
+         for (int32_t oc = oc_start; oc < oc_end; oc++) {
+@@ -604,6 +616,9 @@ static void qacc16_run_channels(const int8_t *t, const int8_t *filt_base,
+         int8_t *out_ptr = out_base + oc;
+         for (int p = 0; p < lanes; p++) {
+             int32_t r = results[p] + combined;
++            if (row_addend != NULL) {
++                r += row_addend[p];
++            }
+             r = esp_nn_requantize(r, m, sh);
+             r += out_offset;
+             r = max(r, act_min);
+@@ -626,7 +641,8 @@ static void conv_1x1_batch16_deep(const int8_t *input, /* 16*in_ch bytes */
+                                   const int32_t *out_mult,
+                                   const int32_t *out_shift,
+                                   int32_t act_min, int32_t act_max,
+-                                  int8_t *transposed /* in_ch*16, 16-aligned */)
++                                  int8_t *transposed /* in_ch*16, 16-aligned */,
++                                  const int32_t *row_addend)
+ {
+     /* Transpose 16 pixels to channel-major: t[c][p] = in[p][c]. */
+     for (int32_t c = 0; c < in_ch; c++) {
+@@ -640,7 +656,7 @@ static void conv_1x1_batch16_deep(const int8_t *input, /* 16*in_ch bytes */
+     qacc16_run_channels(transposed, filter_data + oc_base * in_ch, in_ch,
+                         oc_base, oc_end, filter_sum, bias, out_mult,
+                         out_shift, out_data, out_stride, out_offset,
+-                        act_min, act_max, 16);
++                        act_min, act_max, 16, row_addend);
+ }
+ 
+ __attribute__ ((noinline))
+@@ -652,7 +668,8 @@ static void esp_nn_conv_s8_1x1(const data_dims_t *input_dims,
+                                int8_t *out_data,
+                                const conv_params_t *conv_params,
+                                const quant_data_t *quant_data,
+-                               void *scratch)
++                               void *scratch,
++                               const int32_t *row_addend)
+ {
+     const uint16_t input_wd = input_dims->width;
+     const uint16_t in_channels = input_dims->channels;
+@@ -666,7 +683,7 @@ static void esp_nn_conv_s8_1x1(const data_dims_t *input_dims,
+ 
+     const int32_t filter_bytes = in_channels * out_channels;
+     const int32_t output_pixels = out_wd * out_ht;
+-    if (filter_bytes >= 64 * 1024 && output_pixels <= 16) {
++    if (row_addend == NULL && filter_bytes >= 64 * 1024 && output_pixels <= 16) {
+         conv_1x1_filter_major(input_dims, input_data, filter_data, bias,
+                               output_dims, out_data, conv_params, quant_data);
+         return;
+@@ -701,7 +718,8 @@ static void esp_nn_conv_s8_1x1(const data_dims_t *input_dims,
+             conv_1x1_batch16(pp, filter_data, filter_sum, bias, op,
+                              in_channels, out_channels, out_offset,
+                              quant_data->mult, quant_data->shift,
+-                             activation_min, activation_max);
++                             activation_min, activation_max,
++                             row_addend == NULL ? NULL : row_addend + pix);
+         }
+ 
+         /* Remaining pixels (< 16): scalar fallback */
+@@ -714,6 +732,9 @@ static void esp_nn_conv_s8_1x1(const data_dims_t *input_dims,
+                     conv_out += inp[ic] * filter_ptr[ic];
+                 }
+                 conv_out += filter_sum[oc];
++                if (row_addend != NULL) {
++                    conv_out += row_addend[pix];
++                }
+                 if (bias) conv_out += bias[oc];
+                 conv_out = esp_nn_multiply_by_quantized_mult(conv_out,
+                     quant_data->mult[oc], quant_data->shift[oc]);
+@@ -767,19 +788,45 @@ static void esp_nn_conv_s8_1x1(const data_dims_t *input_dims,
+                                           out_offset, quant_data->mult,
+                                           quant_data->shift,
+                                           activation_min, activation_max,
+-                                          transposed);
++                                          transposed,
++                                          row_addend == NULL ? NULL
++                                                             : row_addend + pix);
+                 }
+             }
+             if (batched == total_pixels) {
+                 return;
+             }
+-            /* Tail (< 16 pixels): fall through to the XACC path over a
+-             * single row of the remaining contiguous pixels. */
++            /* Tail (< 16 pixels). The XACC hardware loop below faults on
++             * the 768-wide FFN remainder (loop exit lands off an
++             * instruction), so finish these pixels in scalar code. */
+             input_data += batched * in_channels;
+             out_data += batched * out_channels;
+-            loop_ht = 1;
+-            loop_wd = total_pixels - batched;
+-            loop_in_wd = loop_wd;
++            const int32_t tail = total_pixels - batched;
++            for (int32_t pix = 0; pix < tail; ++pix) {
++                const int8_t *inp = input_data + pix * in_channels;
++                const int8_t *fp = filter_data;
++                for (int32_t oc = 0; oc < out_channels; ++oc) {
++                    int32_t conv_out = 0;
++                    for (int32_t ic = 0; ic < in_channels; ++ic) {
++                        conv_out += inp[ic] * fp[ic];
++                    }
++                    conv_out += filter_sum[oc];
++                    if (row_addend != NULL) {
++                        conv_out += row_addend[batched + pix];
++                    }
++                    if (bias) {
++                        conv_out += bias[oc];
++                    }
++                    conv_out = esp_nn_requantize(conv_out,
++                            quant_data->mult[oc], quant_data->shift[oc]);
++                    conv_out += out_offset;
++                    conv_out = max(conv_out, activation_min);
++                    conv_out = min(conv_out, activation_max);
++                    out_data[pix * out_channels + oc] = (int8_t) conv_out;
++                    fp += in_channels;
++                }
++            }
++            return;
+         }
+     }
+ 
+@@ -847,6 +894,9 @@ skip_asm:
+                     conv_out += *input_ptr++ * *filter_ptr++;
+                 }
+                 conv_out = conv_out + filter_sum[out_ch_idx];
++                if (row_addend != NULL) {
++                    conv_out += row_addend[in_row * loop_wd + in_col];
++                }
+                 if (bias) {
+                     conv_out += bias[out_ch_idx];
+                 }
+@@ -1282,7 +1332,8 @@ static void esp_nn_conv_s8_im2col(
+                                 filter_sum, bias, quant_data->mult,
+                                 quant_data->shift,
+                                 out_data + (int32_t)pix * out_ch, out_ch,
+-                                out_offset, activation_min, activation_max, 16);
++                                out_offset, activation_min, activation_max, 16,
++                                NULL);
+         }
+         row_groups = 0;          /* per-pixel skips by raster_end instead */
+         bx_end = bx_lo;
+@@ -1333,7 +1384,8 @@ static void esp_nn_conv_s8_im2col(
+                                     quant_data->shift,
+                                     out_data + ((int32_t)oy * out_wd + ox) * out_ch,
+                                     out_ch, out_offset,
+-                                    activation_min, activation_max, lanes);
++                                    activation_min, activation_max, lanes,
++                                    NULL);
+             }
+         }
+     } else {
+@@ -1838,6 +1890,7 @@ typedef struct {
+     const conv_params_t *conv_params;
+     const quant_data_t *quant_data;
+     void *scratch;
++    const int32_t *row_addend;
+ } conv1x1_pie_mt_job_t;
+ 
+ static void conv1x1_pie_mt_worker(void *p)
+@@ -1845,7 +1898,7 @@ static void conv1x1_pie_mt_worker(void *p)
+     const conv1x1_pie_mt_job_t *j = (const conv1x1_pie_mt_job_t *)p;
+     esp_nn_conv_s8_1x1(&j->input_dims, j->input, j->filter_data, j->bias,
+                        &j->output_dims, j->out_data, j->conv_params,
+-                       j->quant_data, j->scratch);
++                       j->quant_data, j->scratch, j->row_addend);
+ }
+ 
+ void esp_nn_conv_s8_riscv_pie(const data_dims_t *input_dims,
+@@ -1918,6 +1971,7 @@ void esp_nn_conv_s8_riscv_pie(const data_dims_t *input_dims,
+                     .output_dims = *output_dims, .out_data = out_data,
+                     .conv_params = conv_params, .quant_data = quant_data,
+                     .scratch = wscr,
++                    .row_addend = fc_row_addend,
+                 };
+                 job.input_dims.height = h0;
+                 job.output_dims.height = h0;
+@@ -1927,10 +1981,13 @@ void esp_nn_conv_s8_riscv_pie(const data_dims_t *input_dims,
+                     in1.height = input_dims->height - h0;
+                     outd1.height = output_dims->height - h0;
+                     const int32_t off = (int32_t)h0 * input_dims->width;
++                    const int32_t *row_rest = fc_row_addend == NULL
++                            ? NULL : fc_row_addend + off;
+                     esp_nn_conv_s8_1x1(&in1, input + off * input_dims->channels,
+                                        filter_data, bias, &outd1,
+                                        out_data + off * output_dims->channels,
+-                                       conv_params, quant_data, scratch_buffer);
++                                       conv_params, quant_data, scratch_buffer,
++                                       row_rest);
+                     esp_nn_dual_core_wait();
+                     return;
+                 }
+@@ -1938,7 +1995,7 @@ void esp_nn_conv_s8_riscv_pie(const data_dims_t *input_dims,
+         }
+         esp_nn_conv_s8_1x1(input_dims, input, filter_data, bias,
+                            output_dims, out_data, conv_params, quant_data,
+-                           scratch_buffer);
++                           scratch_buffer, fc_row_addend);
+     } else if (pad_wd == 0 && pad_ht == 0 &&
+                (int32_t)filter_wd * filter_ht * input_dims->channels >= 128 &&
+                (int32_t)filter_wd * filter_ht * input_dims->channels
+diff --git a/src/fully_connected/esp_nn_fc_internal.h b/src/fully_connected/esp_nn_fc_internal.h
+index 91394ff..723b168 100644
+--- a/src/fully_connected/esp_nn_fc_internal.h
++++ b/src/fully_connected/esp_nn_fc_internal.h
+@@ -41,8 +41,16 @@ void esp_nn_conv_scratch_restore_ansi(void *scratch, void *preferred,
+  * before it returns. */
+ void esp_nn_fc_scratch_clear(void);
+ 
++/* Per-pixel accumulator term for a nonzero fully connected weight
++ * zero-point. P4 only. NULL keeps the weight-zero-point-0 kernel. */
++#if defined(CONFIG_NN_OPTIMIZED) && \
++        (defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32S31))
++void esp_nn_conv_set_row_addend_riscv_pie(const int32_t *row_addend);
++#endif
++
+ /* Returns 1 when the batch was evaluated as a 1x1 convolution.
+- * A nonzero weight zero-point, a shape below the per-chip performance floor,
++ * On P4 a nonzero weight zero-point is applied as a per-row addend and
++ * still uses the 1x1 kernel. A shape below the per-chip performance floor,
+  * batches above UINT16_MAX, an unaligned input or filter, or a fully
+  * connected scratch buffer that is missing or smaller than this 1x1 shape
+  * returns 0 and leaves out_data untouched. The convolution scratch pointer
+diff --git a/src/fully_connected/esp_nn_fully_connected_ansi.c b/src/fully_connected/esp_nn_fully_connected_ansi.c
+index c5106dc..3aae8e6 100644
+--- a/src/fully_connected/esp_nn_fully_connected_ansi.c
++++ b/src/fully_connected/esp_nn_fully_connected_ansi.c
+@@ -246,12 +246,19 @@ int esp_nn_fc_per_ch_s8_batch_via_conv(const int8_t *input_data,
+                                     const int32_t batches)
+ {
+     if (batches > UINT16_MAX ||
+-            filter_offset != 0 ||
+             (((uintptr_t) input_data) & 7) != 0 ||
+             (((uintptr_t) filter_data) & 7) != 0 ||
+             !fc_conv_shape_wins(batches, row_len, out_channels)) {
+         return 0;
+     }
++#if !defined(CONFIG_NN_OPTIMIZED) || \
++        !(defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32S31))
++    /* The 1x1 kernel has no weight-zero-point term except on P4, where the
++     * missing per-row product is added before requantize. */
++    if (filter_offset != 0) {
++        return 0;
++    }
++#endif
+ 
+     const data_dims_t input_dims = {
+         .width = 1, .height = batches, .channels = row_len,
+@@ -272,9 +279,38 @@ int esp_nn_fc_per_ch_s8_batch_via_conv(const int8_t *input_data,
+     };
+     const int scratch_need = esp_nn_get_conv_scratch_size(
+             &input_dims, &filter_dims, &output_dims, &conv_params);
+-    if (!fc_scratch_fits(scratch_need)) {
++    /* Weight zero-point folds into a per-row term stored after the
++     * convolution workspace: filter_offset * (sum(input) + K * input_offset). */
++    const int addend_at = (scratch_need + 15) & ~15;
++    const int scratch_bytes = filter_offset == 0
++            ? scratch_need
++            : addend_at + batches * (int) sizeof(int32_t);
++    if (!fc_scratch_fits(scratch_bytes)) {
+         return 0;
+     }
++    if (filter_offset != 0) {
++        int32_t *addend = (int32_t *) (fc_scratch + addend_at);
++        for (int32_t n = 0; n < batches; n++) {
++            int32_t sum = 0;
++            const int8_t *row = input_data + (size_t) n * row_len;
++            for (uint16_t c = 0; c < row_len; c++) {
++                sum += row[c];
++            }
++            const int64_t term = (int64_t) filter_offset *
++                    ((int64_t) sum + (int64_t) row_len * input_offset);
++            if (term > INT32_MAX || term < INT32_MIN) {
++                return 0;
++            }
++            addend[n] = (int32_t) term;
++        }
++#if defined(CONFIG_NN_OPTIMIZED) && \
++        (defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32S31))
++        esp_nn_conv_set_row_addend_riscv_pie(addend);
++#else
++        (void) addend;
++        return 0;
++#endif
++    }
+     quant_data_t quant = {
+         .shift = (int32_t *) out_shift,
+         .mult = (int32_t *) out_mult,
+@@ -288,6 +324,10 @@ int esp_nn_fc_per_ch_s8_batch_via_conv(const int8_t *input_data,
+                    &output_dims, out_data, &conv_params, &quant);
+     esp_nn_conv_scratch_restore(saved_scratch, saved_preferred,
+                                 saved_preferred_size);
++#if defined(CONFIG_NN_OPTIMIZED) && \
++        (defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32S31))
++    esp_nn_conv_set_row_addend_riscv_pie(NULL);
++#endif
+     return 1;
+ }
+ 

@@ -1,0 +1,5 @@
+These three esp-nn files are the kernel used for the attention-matmul numbers in this draft. They are not part of espressif/esp-nn pull 46.
+
+On top of commit d9a9794 they add a P4 per-row addend so a nonzero fully connected weight zero-point can stay on the 1x1 path, and a scalar tail for the 768-wide DeiT-Tiny feed-forward remainder.
+
+against-d9a9794.patch is that diff. The src/ tree is the modified copies.
