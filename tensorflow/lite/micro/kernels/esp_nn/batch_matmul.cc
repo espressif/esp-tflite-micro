@@ -29,6 +29,19 @@ limitations under the License.
 #include "tensorflow/lite/micro/kernels/kernel_util.h"
 #include "tensorflow/lite/micro/micro_log.h"
 
+#if ESP_NN
+#include <esp_nn.h>
+#include <esp_timer.h>
+#endif
+
+#if defined(ESP_NN_HAS_FC_S8_BATCH) && defined(ESP_NN_HAS_FC_SCRATCH_BUF)
+extern "C" {
+long long bmm_fc_us = 0;
+int bmm_fc_calls = 0;
+int bmm_fc_skip = 0;
+}
+#endif
+
 namespace tflite {
 namespace micro {
 namespace {
@@ -43,6 +56,8 @@ struct OpDataBatchMatmulEsp {
   OpDataBatchMatmul base;  // must stay first: shared code casts through it
   int scratch_idx;
   int32_t scratch_elems;
+  int fc_scratch_idx;
+  int fc_scratch_bytes;
 };
 
 void ReshapeToFlattenBatchDimsIfPossible(RuntimeShape* lhs_shape,
@@ -198,6 +213,8 @@ void* BatchMatMulInit(TfLiteContext* context, const char* buffer,
     OpDataBatchMatmulEsp* esp_data = static_cast<OpDataBatchMatmulEsp*>(raw);
     esp_data->scratch_idx = -1;
     esp_data->scratch_elems = 0;
+    esp_data->fc_scratch_idx = -1;
+    esp_data->fc_scratch_bytes = 0;
   }
   return raw;
 #else
@@ -314,6 +331,8 @@ TfLiteStatus BatchMatMulPrepare(TfLiteContext* context, TfLiteNode* node) {
       static_cast<OpDataBatchMatmulEsp*>(node->user_data);
   esp_data->scratch_idx = -1;
   esp_data->scratch_elems = 0;
+  esp_data->fc_scratch_idx = -1;
+  esp_data->fc_scratch_bytes = 0;
   if (status == kTfLiteOk && lhs_data->type == kTfLiteInt8) {
     RuntimeShape fast_lhs_shape =
         adj_x ? GetTensorShape(lhs_data)
@@ -324,8 +343,13 @@ TfLiteStatus BatchMatMulPrepare(TfLiteContext* context, TfLiteNode* node) {
     ReshapeToFlattenBatchDimsIfPossible(&fast_lhs_shape, &fast_rhs_shape);
     // Eval passes RHS args first, so rows come from the RHS shape and
     // columns from the LHS shape.
-    const int32_t rows = RuntimeShape::ExtendedShape(5, fast_rhs_shape).Dims(3);
-    const int32_t cols = RuntimeShape::ExtendedShape(5, fast_lhs_shape).Dims(4);
+    const RuntimeShape fast_rhs_ext =
+        RuntimeShape::ExtendedShape(5, fast_rhs_shape);
+    const RuntimeShape fast_lhs_ext =
+        RuntimeShape::ExtendedShape(5, fast_lhs_shape);
+    const int32_t rows = fast_rhs_ext.Dims(3);
+    const int32_t cols = fast_lhs_ext.Dims(4);
+    const int32_t depth = fast_rhs_ext.Dims(4);
     if (rows > 0 && cols > 0 && rows + cols > kBatchMatmulStackSums) {
       int idx = -1;
       if (context->RequestScratchBufferInArena(
@@ -335,12 +359,113 @@ TfLiteStatus BatchMatMulPrepare(TfLiteContext* context, TfLiteNode* node) {
         esp_data->scratch_elems = rows + cols;
       }
     }
+#if defined(ESP_NN_HAS_FC_S8_BATCH) && defined(ESP_NN_HAS_FC_SCRATCH_BUF)
+    if (rows > 0 && rows <= 65535 && cols > 0 && cols <= 65535 && depth > 0 &&
+        depth <= 65535) {
+      const int conv = esp_nn_get_fc_batch_scratch_size(
+          cols, static_cast<uint16_t>(depth), static_cast<uint16_t>(rows));
+      if (conv > 0) {
+        const int addend_at = (conv + 15) & ~15;
+        const int bytes = addend_at + cols * static_cast<int>(sizeof(int32_t)) +
+                          rows * 2 * static_cast<int>(sizeof(int32_t)) + 16;
+        int idx = -1;
+        if (context->RequestScratchBufferInArena(context, static_cast<size_t>(bytes),
+                                                 &idx) == kTfLiteOk) {
+          esp_data->fc_scratch_idx = idx;
+          esp_data->fc_scratch_bytes = bytes;
+        }
+      }
+    }
+#endif
   }
 #endif  // ESP_NN
 
   return status;
 }
 
+
+#if defined(ESP_NN_HAS_FC_S8_BATCH) && defined(ESP_NN_HAS_FC_SCRATCH_BUF)
+// One head of QK or attention×V is a batched fully connected layer: the
+// query/attention rows are the batch and the key/value rows are the filter.
+// A nonzero filter zero-point is applied inside the 1x1 kernel.
+static bool BatchMatMulViaFc(TfLiteContext* context,
+                             const OpDataBatchMatmul& data,
+                             const FullyConnectedParams& params,
+                             const RuntimeShape& lhs_shape,
+                             const int8_t* lhs_data,
+                             const RuntimeShape& rhs_shape,
+                             const int8_t* rhs_data,
+                             int8_t* output_data) {
+  const RuntimeShape elhs = RuntimeShape::ExtendedShape(5, lhs_shape);
+  const RuntimeShape erhs = RuntimeShape::ExtendedShape(5, rhs_shape);
+  for (int d = 0; d < 3; d++) {
+    if (elhs.Dims(d) != erhs.Dims(d)) {
+      return false;
+    }
+  }
+  const int32_t heads = elhs.Dims(0) * elhs.Dims(1) * elhs.Dims(2);
+  const int32_t lhs_rows = elhs.Dims(3);
+  const int32_t rhs_cols = erhs.Dims(4);
+  const int32_t depth = elhs.Dims(4);
+  if (heads < 1 || lhs_rows < 1 || rhs_cols < 1 || depth < 1 ||
+      erhs.Dims(3) * erhs.Dims(4) != rhs_cols * depth ||
+      lhs_rows > 65535 || rhs_cols > 65535 || depth > 65535) {
+    return false;
+  }
+  const OpDataBatchMatmulEsp* esp_data =
+      reinterpret_cast<const OpDataBatchMatmulEsp*>(&data);
+  if (esp_data->fc_scratch_idx < 0) {
+    return false;
+  }
+  uint8_t* raw = static_cast<uint8_t*>(
+      context->GetScratchBuffer(context, esp_data->fc_scratch_idx));
+  const uintptr_t aligned =
+      (reinterpret_cast<uintptr_t>(raw) + 15u) & ~uintptr_t{15};
+  const int align_loss =
+      static_cast<int>(aligned - reinterpret_cast<uintptr_t>(raw));
+  if (align_loss + 16 > esp_data->fc_scratch_bytes) {
+    return false;
+  }
+  uint8_t* scratch = reinterpret_cast<uint8_t*>(aligned);
+  const int usable = esp_data->fc_scratch_bytes - align_loss;
+  const int conv = esp_nn_get_fc_batch_scratch_size(
+      rhs_cols, static_cast<uint16_t>(depth), static_cast<uint16_t>(lhs_rows));
+  if (conv <= 0) {
+    return false;
+  }
+  const int addend_at = (conv + 15) & ~15;
+  const int quant_at = addend_at + rhs_cols * static_cast<int>(sizeof(int32_t));
+  const int need = quant_at + lhs_rows * 2 * static_cast<int>(sizeof(int32_t));
+  if (need > usable) {
+    return false;
+  }
+  if (((reinterpret_cast<uintptr_t>(lhs_data) | reinterpret_cast<uintptr_t>(rhs_data)) &
+       7u) != 0) {
+    return false;
+  }
+  int32_t* mult = reinterpret_cast<int32_t*>(scratch + quant_at);
+  int32_t* shift = mult + lhs_rows;
+  for (int32_t oc = 0; oc < lhs_rows; ++oc) {
+    mult[oc] = params.output_multiplier;
+    shift[oc] = params.output_shift;
+  }
+  const int64_t t0 = esp_timer_get_time();
+  for (int32_t h = 0; h < heads; ++h) {
+    const int8_t* filter = lhs_data + static_cast<size_t>(h) * lhs_rows * depth;
+    const int8_t* input = rhs_data + static_cast<size_t>(h) * rhs_cols * depth;
+    int8_t* out = output_data + static_cast<size_t>(h) * lhs_rows * rhs_cols;
+    esp_nn_set_fc_scratch_buf(scratch, static_cast<size_t>(usable));
+    esp_nn_fully_connected_per_ch_s8_batch(
+        input, params.input_offset, static_cast<uint16_t>(depth), filter,
+        params.weights_offset, nullptr, out, static_cast<uint16_t>(lhs_rows),
+        params.output_offset, shift, mult, params.quantized_activation_min,
+        params.quantized_activation_max, rhs_cols);
+  }
+  bmm_fc_us += esp_timer_get_time() - t0;
+  bmm_fc_calls += 1;
+  return true;
+}
+#endif
 
 #if ESP_NN
 // Espressif fast path for the quantized reference BatchMatMul. Mirrors the
@@ -474,6 +599,16 @@ TfLiteStatus EvalInt8(TfLiteContext* context, const OpDataBatchMatmul& data,
           ? static_cast<int32_t*>(
                 context->GetScratchBuffer(context, esp_data->scratch_idx))
           : nullptr;
+#if defined(ESP_NN_HAS_FC_S8_BATCH) && defined(ESP_NN_HAS_FC_SCRATCH_BUF)
+  if (BatchMatMulViaFc(
+          context, data, op_params, rhs_shape,
+          tflite::micro::GetTensorData<int8_t>(&rhs), lhs_shape,
+          tflite::micro::GetTensorData<int8_t>(&lhs),
+          tflite::micro::GetTensorData<int8_t>(output))) {
+    return kTfLiteOk;
+  }
+  bmm_fc_skip += 1;
+#endif
   if (!BatchMatMulInt8Fast(
           op_params, rhs_shape, tflite::micro::GetTensorData<int8_t>(&rhs),
           lhs_shape, tflite::micro::GetTensorData<int8_t>(&lhs), output_shape,

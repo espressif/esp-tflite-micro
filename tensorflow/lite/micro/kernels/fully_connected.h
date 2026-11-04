@@ -58,6 +58,12 @@ struct OpDataFullyConnected {
   int bias_scratch_index;
 
 #endif  // USE_TFLM_COMPRESSION
+
+  // Arena scratch for esp-nn's batched per-channel fully connected. -1 when
+  // this node stays on the per-row kernel. The byte count is what
+  // esp_nn_get_fc_batch_scratch_size returned for this shape.
+  int fc_batch_scratch_index;
+  int32_t fc_batch_scratch_bytes;
 };
 
 extern const int kFullyConnectedInputTensor;

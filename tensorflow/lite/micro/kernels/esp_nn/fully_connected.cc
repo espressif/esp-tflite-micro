@@ -30,7 +30,18 @@ limitations under the License.
 
 #include <esp_timer.h>
 
+// Wall time inside every fully connected eval, and the subset whose shape is
+// the DeiT-Tiny FFN down-projection (row 768, out 192). The application
+// zeroes these around the invoke it wants to report.
 long long fc_total_time = 0;
+long long fc_ffn_down_time = 0;
+int fc_ffn_down_calls = 0;
+int fc_batch_calls = 0;
+int fc_row_calls = 0;
+
+// Strong override in the fast firmware returns 1. The slow firmware leaves
+// this weak definition, which keeps the per-row PIE kernel.
+extern "C" int __attribute__((weak)) esp_tflm_fc_use_batch(void) { return 0; }
 
 namespace tflite {
 namespace micro {
@@ -50,6 +61,8 @@ TfLiteStatus FullyConnectedPrepare(TfLiteContext* context, TfLiteNode* node) {
   TFLITE_DCHECK(node->builtin_data != nullptr);
 
   auto* data = static_cast<OpDataFullyConnected*>(node->user_data);
+  data->fc_batch_scratch_index = -1;
+  data->fc_batch_scratch_bytes = 0;
   const auto params =
       static_cast<const TfLiteFullyConnectedParams*>(node->builtin_data);
 
@@ -88,6 +101,35 @@ TfLiteStatus FullyConnectedPrepare(TfLiteContext* context, TfLiteNode* node) {
   TF_LITE_ENSURE_OK(context, CalculateOpDataFullyConnected(
                                  context, params->activation, input->type,
                                  input, filter, bias, output, data));
+
+#if defined(ESP_NN) && defined(ESP_NN_HAS_FC_S8_BATCH) && \
+    defined(ESP_NN_HAS_FC_SCRATCH_BUF)
+  // The batched kernel evaluates every row as one 1x1 convolution. That path
+  // needs a fully connected scratch buffer registered immediately before the
+  // call. Request it here so the arena planner can reuse it across nodes.
+  if (esp_tflm_fc_use_batch() != 0 && data->is_per_channel &&
+      input->type == kTfLiteInt8 && filter->type == kTfLiteInt8 &&
+      output->dims->size >= 1 && filter->dims->size >= 2) {
+    int32_t batches = 1;
+    for (int i = 0; i < output->dims->size - 1; ++i) {
+      batches *= output->dims->data[i];
+    }
+    const int32_t out_depth = output->dims->data[output->dims->size - 1];
+    const int32_t accum = filter->dims->data[filter->dims->size - 1];
+    if (batches > 0 && batches <= 65535 && accum > 0 && accum <= 65535 &&
+        out_depth > 0 && out_depth <= 65535) {
+      const int need = esp_nn_get_fc_batch_scratch_size(
+          batches, static_cast<uint16_t>(accum),
+          static_cast<uint16_t>(out_depth));
+      if (need > 0) {
+        TF_LITE_ENSURE_OK(
+            context, context->RequestScratchBufferInArena(
+                         context, need + 16, &data->fc_batch_scratch_index));
+        data->fc_batch_scratch_bytes = need;
+      }
+    }
+  }
+#endif
 
   micro_context->DeallocateTempTfLiteTensor(input);
   micro_context->DeallocateTempTfLiteTensor(filter);
@@ -176,39 +218,54 @@ TfLiteStatus FullyConnectedEval(TfLiteContext* context, TfLiteNode* node) {
             int8_t *output_data = tflite::micro::GetTensorData<int8_t>(output);
             const int8_t *filter_data = tflite::micro::GetTensorData<int8_t>(filter);
 
-#if defined(ESP_NN_HAS_FC_S8_BATCH) && CONFIG_IDF_TARGET_ESP32S3
-            // A sequence/attention FC has `batches` rows (e.g. time frames)
-            // sharing one filter. Calling the per-row kernel once per row
-            // re-walks the whole filter every time (weight-streaming). The
-            // batched kernel runs one weight-stationary GEMM instead: filter
-            // rows stay cache-resident across rows and the per-channel
-            // correction prepass runs once. Bit-identical result.
-            // ESP32-S3 only: esp-nn defines ESP_NN_HAS_FC_S8_BATCH on every
-            // target but maps it to an optimised kernel only on ESP32-S3; on
-            // the others it is the ANSI C kernel, slower than the per-row
-            // ESP32-P4 / S31 PIE kernel below.
-            esp_nn_fully_connected_per_ch_s8_batch(input_data, -data.input_zero_point,
-                                        accum_depth,
-                                        filter_data, -data.filter_zero_point,
-                                        bias_data, output_data, output_depth,
-                                        data.output_zero_point,
-                                        data.per_channel_output_shift, data.per_channel_output_multiplier,
-                                        data.output_activation_min,
-                                        data.output_activation_max, batches);
-#else
-            for (int b = 0; b < batches; ++b) {
-              esp_nn_fully_connected_per_ch_s8(input_data, -data.input_zero_point,
-                                        accum_depth,
-                                        filter_data, -data.filter_zero_point,
-                                        bias_data, output_data, output_depth,
-                                        data.output_zero_point,
-                                        data.per_channel_output_shift, data.per_channel_output_multiplier,
-                                        data.output_activation_min,
-                                        data.output_activation_max);
-              input_data += accum_depth;
-              output_data += output_depth;
-            }
+            const int64_t fc_t0 = esp_timer_get_time();
+#if defined(ESP_NN_HAS_FC_S8_BATCH) && defined(ESP_NN_HAS_FC_SCRATCH_BUF)
+            // P4 fast path: a per-channel batch with weight zero-point 0 is a
+            // 1x1 convolution when a fully connected scratch buffer is
+            // registered. The row loop below is the kernel that stays in
+            // upstream esp-nn (and in this tree when the app does not ask
+            // for the batch).
+            const bool batch_ok =
+                data.fc_batch_scratch_index >= 0 &&
+                data.filter_zero_point == 0 &&
+                ((reinterpret_cast<uintptr_t>(input_data) & 7u) == 0) &&
+                ((reinterpret_cast<uintptr_t>(filter_data) & 7u) == 0);
+            if (batch_ok) {
+              uint8_t* raw = static_cast<uint8_t*>(context->GetScratchBuffer(
+                  context, data.fc_batch_scratch_index));
+              const uintptr_t aligned =
+                  (reinterpret_cast<uintptr_t>(raw) + 15u) & ~uintptr_t{15};
+              esp_nn_set_fc_scratch_buf(reinterpret_cast<void*>(aligned),
+                                        static_cast<size_t>(data.fc_batch_scratch_bytes));
+              esp_nn_fully_connected_per_ch_s8_batch(
+                  input_data, -data.input_zero_point, accum_depth, filter_data,
+                  -data.filter_zero_point, bias_data, output_data, output_depth,
+                  data.output_zero_point, data.per_channel_output_shift,
+                  data.per_channel_output_multiplier, data.output_activation_min,
+                  data.output_activation_max, batches);
+              fc_batch_calls += 1;
+            } else
 #endif
+            {
+              for (int b = 0; b < batches; ++b) {
+                esp_nn_fully_connected_per_ch_s8(input_data, -data.input_zero_point,
+                                          accum_depth,
+                                          filter_data, -data.filter_zero_point,
+                                          bias_data, output_data, output_depth,
+                                          data.output_zero_point,
+                                          data.per_channel_output_shift, data.per_channel_output_multiplier,
+                                          data.output_activation_min,
+                                          data.output_activation_max);
+                input_data += accum_depth;
+                output_data += output_depth;
+              }
+              fc_row_calls += 1;
+            }
+            const int64_t fc_dt = esp_timer_get_time() - fc_t0;
+            if (accum_depth == 768 && output_depth == 192) {
+              fc_ffn_down_time += fc_dt;
+              fc_ffn_down_calls += 1;
+            }
 #else
             tflite::micro::reference_integer_ops::FullyConnectedPerChannel(
                 FullyConnectedParamsQuantized(data),
