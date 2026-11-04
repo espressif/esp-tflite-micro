@@ -71,9 +71,17 @@ void MulEvalQuantized(TfLiteContext* context, TfLiteNode* node,
     const RuntimeShape sho = tflite::micro::GetTensorShape(output);
     const int8_t* d1 = tflite::micro::GetTensorData<int8_t>(input1);
     const int8_t* d2 = tflite::micro::GetTensorData<int8_t>(input2);
-    const bool vec_is_2 = (sh2.FlatSize() == sho.Dims(sho.DimensionsCount() - 1)) &&
+    // The fast path multiplies element i by vec[i % C]: only right when the
+    // smaller operand runs along the last (channel) axis, not merely has C
+    // elements (e.g. [1,8,1,1] against [1,8,8,8] is a per-row scale).
+    const int out_ch = sho.Dims(sho.DimensionsCount() - 1);
+    const bool vec_is_2 = (sh2.FlatSize() == out_ch) &&
+                          (sh2.DimensionsCount() > 0) &&
+                          (sh2.Dims(sh2.DimensionsCount() - 1) == out_ch) &&
                           (sh1.FlatSize() == sho.FlatSize());
-    const bool vec_is_1 = (sh1.FlatSize() == sho.Dims(sho.DimensionsCount() - 1)) &&
+    const bool vec_is_1 = (sh1.FlatSize() == out_ch) &&
+                          (sh1.DimensionsCount() > 0) &&
+                          (sh1.Dims(sh1.DimensionsCount() - 1) == out_ch) &&
                           (sh2.FlatSize() == sho.FlatSize());
     if (vec_is_2 || vec_is_1) {
       const int8_t* big = vec_is_2 ? d1 : d2;

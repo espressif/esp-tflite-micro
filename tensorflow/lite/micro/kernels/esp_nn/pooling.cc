@@ -232,12 +232,22 @@ void* PoolInit(TfLiteContext* context, const char* buffer, size_t length) {
 
 }  // namespace
 
+// PoolingPrepare plus a non-empty window: the esp-nn average pool divides
+// by the window's pixel count.
+static TfLiteStatus EspPoolPrepare(TfLiteContext* context, TfLiteNode* node) {
+  TF_LITE_ENSURE_STATUS(PoolingPrepare(context, node));
+  const auto* params = static_cast<const TfLitePoolParams*>(node->builtin_data);
+  TF_LITE_ENSURE(context, params->filter_width > 0);
+  TF_LITE_ENSURE(context, params->filter_height > 0);
+  return kTfLiteOk;
+}
+
 TFLMRegistration Register_AVERAGE_POOL_2D() {
-  return tflite::micro::RegisterOp(PoolInit, PoolingPrepare, AverageEval);
+  return tflite::micro::RegisterOp(PoolInit, EspPoolPrepare, AverageEval);
 }
 
 TFLMRegistration Register_MAX_POOL_2D() {
-  return tflite::micro::RegisterOp(PoolInit, PoolingPrepare, MaxEval);
+  return tflite::micro::RegisterOp(PoolInit, EspPoolPrepare, MaxEval);
 }
 
 }  // namespace micro
