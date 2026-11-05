@@ -34,14 +34,7 @@ limitations under the License.
 #include "tensorflow/lite/micro/micro_log.h"
 #include "tensorflow/lite/micro/micro_utils.h"
 
-#if ESP_NN
-#if defined(__has_include)
-#if __has_include(<esp_nn_multicore.h>)
-#include <esp_nn_multicore.h>
-#define ESP_NN_HAVE_MULTICORE 1
-#endif
-#endif
-#endif
+#include "tensorflow/lite/micro/kernels/esp_nn/esp_nn_dual_core.h"
 
 namespace tflite {
 namespace micro {
@@ -152,7 +145,7 @@ TfLiteStatus HardSwishEval(TfLiteContext* context, TfLiteNode* node) {
       int8_t* out_data = tflite::micro::GetTensorData<int8_t>(output);
       if (d->lut_valid) {
 #ifdef ESP_NN_HAVE_MULTICORE
-        if (esp_nn_dual_core_active() && flat_size >= 32768) {
+        if (flat_size >= 32768 && EspNnDualCoreBegin()) {
           const int half = flat_size / 2;
           HardSwishLutJob job = {d->lut, in_data, out_data, half};
           if (esp_nn_dual_core_run(HardSwishLutWorker, &job)) {
@@ -160,8 +153,10 @@ TfLiteStatus HardSwishEval(TfLiteContext* context, TfLiteNode* node) {
                                     flat_size - half};
             HardSwishLutWorker(&rest);
             esp_nn_dual_core_wait();
+            EspNnDualCoreEnd();
             break;
           }
+          EspNnDualCoreEnd();
         }
 #endif  // ESP_NN_HAVE_MULTICORE
         HardSwishLutJob job = {d->lut, in_data, out_data, flat_size};

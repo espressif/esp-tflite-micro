@@ -28,14 +28,7 @@ limitations under the License.
 #include "tensorflow/lite/micro/micro_log.h"
 #include "tensorflow/lite/micro/micro_utils.h"
 
-#if ESP_NN
-#if defined(__has_include)
-#if __has_include(<esp_nn_multicore.h>)
-#include <esp_nn_multicore.h>
-#define ESP_NN_HAVE_MULTICORE 1
-#endif
-#endif
-#endif
+#include "tensorflow/lite/micro/kernels/esp_nn/esp_nn_dual_core.h"
 
 namespace tflite {
 namespace micro {
@@ -135,7 +128,7 @@ TfLiteStatus EvalQuantize(TfLiteContext* context, TfLiteNode* node) {
       const int8_t* in_data = tflite::micro::GetTensorData<int8_t>(input);
       int8_t* out_data = tflite::micro::GetTensorData<int8_t>(output);
 #ifdef ESP_NN_HAVE_MULTICORE
-      if (esp_nn_dual_core_active() && count >= 32768) {
+      if (count >= 32768 && EspNnDualCoreBegin()) {
         const int32_t half = count / 2;
         QuantLutJob wjob = {d->lut, in_data, out_data, half};
         if (esp_nn_dual_core_run(QuantLutJob::Run, &wjob)) {
@@ -143,8 +136,10 @@ TfLiteStatus EvalQuantize(TfLiteContext* context, TfLiteNode* node) {
                               count - half};
           QuantLutJob::Run(&rest);
           esp_nn_dual_core_wait();
+          EspNnDualCoreEnd();
           return kTfLiteOk;
         }
+        EspNnDualCoreEnd();
       }
 #endif  // ESP_NN_HAVE_MULTICORE
       QuantLutJob job = {d->lut, in_data, out_data, count};

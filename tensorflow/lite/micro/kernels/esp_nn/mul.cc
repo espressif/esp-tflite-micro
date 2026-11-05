@@ -28,13 +28,8 @@ limitations under the License.
 
 #if ESP_NN
 #include <esp_nn.h>
-#if defined(__has_include)
-#if __has_include(<esp_nn_multicore.h>)
-#include <esp_nn_multicore.h>
-#define ESP_NN_HAVE_MULTICORE 1
 #endif
-#endif
-#endif
+#include "tensorflow/lite/micro/kernels/esp_nn/esp_nn_dual_core.h"
 
 #include <esp_timer.h>
 
@@ -110,7 +105,7 @@ void MulEvalQuantized(TfLiteContext* context, TfLiteNode* node,
                          op_params.quantized_activation_min,
                          op_params.quantized_activation_max};
 #ifdef ESP_NN_HAVE_MULTICORE
-      if (esp_nn_dual_core_active() && positions * ch >= 8192) {
+      if (positions * ch >= 8192 && EspNnDualCoreBegin()) {
         const int p0 = positions / 2;
         BcastMulJob wjob = job;
         wjob.positions = p0;
@@ -121,8 +116,10 @@ void MulEvalQuantized(TfLiteContext* context, TfLiteNode* node,
           rest.positions = positions - p0;
           BcastMulJob::Run(&rest);
           esp_nn_dual_core_wait();
+          EspNnDualCoreEnd();
           return;
         }
+        EspNnDualCoreEnd();
       }
 #endif  // ESP_NN_HAVE_MULTICORE
       BcastMulJob::Run(&job);
