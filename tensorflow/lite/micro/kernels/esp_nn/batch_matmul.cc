@@ -17,6 +17,8 @@ limitations under the License.
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdio>
+#include <cstring>
 #include <limits>
 
 #include "tensorflow/lite/micro/c/common.h"
@@ -39,6 +41,46 @@ extern "C" {
 long long bmm_fc_us = 0;
 int bmm_fc_calls = 0;
 int bmm_fc_skip = 0;
+
+/* Bench probe for one BATCH_MATMUL eval. rhs_copy/lhs_copy:
+ * 0 = adj flag set, no data movement
+ * 1 = reference_ops::Transpose ran this call
+ * 2 = constant tensor, transpose already done on an earlier call */
+struct BmmProfCall {
+  int32_t lhs_rank;
+  int32_t lhs_dims[5];
+  int32_t rhs_rank;
+  int32_t rhs_dims[5];
+  int adj_x;
+  int adj_y;
+  int rhs_copy;
+  int lhs_copy;
+  int32_t rhs_bytes;
+  int32_t lhs_bytes;
+  long long rhs_tp_us;
+  long long lhs_tp_us;
+  long long kernel_us;
+  long long eval_us;
+  int align_copies;
+};
+
+constexpr int kBmmProfMax = 32;
+long long bmm_eval_us = 0;
+long long bmm_rhs_tp_us = 0;
+long long bmm_lhs_tp_us = 0;
+long long bmm_align_us = 0;
+int bmm_align_copies = 0;
+int bmm_prof_n = 0;
+BmmProfCall bmm_prof_calls[kBmmProfMax];
+
+void bmm_prof_reset(void) {
+  bmm_eval_us = 0;
+  bmm_rhs_tp_us = 0;
+  bmm_lhs_tp_us = 0;
+  bmm_align_us = 0;
+  bmm_align_copies = 0;
+  bmm_prof_n = 0;
+}
 }
 #endif
 
@@ -222,6 +264,45 @@ void* BatchMatMulInit(TfLiteContext* context, const char* buffer,
 #endif
 }
 
+#if defined(ESP_NN_HAS_FC_S8_BATCH) && defined(ESP_NN_HAS_FC_SCRATCH_BUF)
+/* Scratch for one 1x1 call, then one aligned copy of a head that missed
+ * the 8-byte pointer check. The copy sits past the quant tables so the
+ * kernel can use the front of the buffer while reading the copy. */
+struct BmmFcScratch {
+  int conv;
+  int stage_at;
+  int input_stage;
+  int filter_stage;
+  int total;
+};
+
+static int BmmRound16(int64_t bytes) {
+  return static_cast<int>((bytes + 15) & ~int64_t{15});
+}
+
+static BmmFcScratch BmmFcScratchPlan(int32_t batches, int32_t depth,
+                                    int32_t out_ch) {
+  BmmFcScratch plan = {0, 0, 0, 0, 0};
+  if (batches <= 0 || depth <= 0 || out_ch <= 0 || batches > 65535 ||
+      depth > 65535 || out_ch > 65535) {
+    return plan;
+  }
+  plan.conv = esp_nn_get_fc_batch_scratch_size(
+      batches, static_cast<uint16_t>(depth), static_cast<uint16_t>(out_ch));
+  if (plan.conv <= 0) {
+    return plan;
+  }
+  const int addend_at = (plan.conv + 15) & ~15;
+  const int quant_at = addend_at + batches * static_cast<int>(sizeof(int32_t));
+  const int need = quant_at + out_ch * 2 * static_cast<int>(sizeof(int32_t));
+  plan.stage_at = (need + 15) & ~15;
+  plan.input_stage = BmmRound16(static_cast<int64_t>(batches) * depth);
+  plan.filter_stage = BmmRound16(static_cast<int64_t>(out_ch) * depth);
+  plan.total = plan.stage_at + plan.input_stage + plan.filter_stage + 16;
+  return plan;
+}
+#endif
+
 TfLiteStatus BatchMatMulPrepare(TfLiteContext* context, TfLiteNode* node) {
   TF_LITE_ENSURE_EQ(context, NumInputs(node), 2);
   TF_LITE_ENSURE_EQ(context, NumOutputs(node), 1);
@@ -362,17 +443,13 @@ TfLiteStatus BatchMatMulPrepare(TfLiteContext* context, TfLiteNode* node) {
 #if defined(ESP_NN_HAS_FC_S8_BATCH) && defined(ESP_NN_HAS_FC_SCRATCH_BUF)
     if (rows > 0 && rows <= 65535 && cols > 0 && cols <= 65535 && depth > 0 &&
         depth <= 65535) {
-      const int conv = esp_nn_get_fc_batch_scratch_size(
-          cols, static_cast<uint16_t>(depth), static_cast<uint16_t>(rows));
-      if (conv > 0) {
-        const int addend_at = (conv + 15) & ~15;
-        const int bytes = addend_at + cols * static_cast<int>(sizeof(int32_t)) +
-                          rows * 2 * static_cast<int>(sizeof(int32_t)) + 16;
+      const BmmFcScratch plan = BmmFcScratchPlan(cols, depth, rows);
+      if (plan.conv > 0) {
         int idx = -1;
-        if (context->RequestScratchBufferInArena(context, static_cast<size_t>(bytes),
-                                                 &idx) == kTfLiteOk) {
+        if (context->RequestScratchBufferInArena(
+                context, static_cast<size_t>(plan.total), &idx) == kTfLiteOk) {
           esp_data->fc_scratch_idx = idx;
-          esp_data->fc_scratch_bytes = bytes;
+          esp_data->fc_scratch_bytes = plan.total;
         }
       }
     }
@@ -428,17 +505,12 @@ static bool BatchMatMulViaFc(TfLiteContext* context,
   }
   uint8_t* scratch = reinterpret_cast<uint8_t*>(aligned);
   const int usable = esp_data->fc_scratch_bytes - align_loss;
-  const int conv = esp_nn_get_fc_batch_scratch_size(
-      rhs_cols, static_cast<uint16_t>(depth), static_cast<uint16_t>(lhs_rows));
-  if (conv <= 0) {
+  const BmmFcScratch plan = BmmFcScratchPlan(rhs_cols, depth, lhs_rows);
+  if (plan.conv <= 0 || plan.total - 16 > usable) {
     return false;
   }
-  const int addend_at = (conv + 15) & ~15;
-  const int quant_at = addend_at + rhs_cols * static_cast<int>(sizeof(int32_t));
-  const int need = quant_at + lhs_rows * 2 * static_cast<int>(sizeof(int32_t));
-  if (need > usable) {
-    return false;
-  }
+  const int quant_at =
+      ((plan.conv + 15) & ~15) + rhs_cols * static_cast<int>(sizeof(int32_t));
   if (((reinterpret_cast<uintptr_t>(lhs_data) | reinterpret_cast<uintptr_t>(rhs_data)) &
        7u) != 0) {
     return false;
@@ -449,11 +521,29 @@ static bool BatchMatMulViaFc(TfLiteContext* context,
     mult[oc] = params.output_multiplier;
     shift[oc] = params.output_shift;
   }
+  uint8_t* input_stage = scratch + plan.stage_at;
+  uint8_t* filter_stage = input_stage + plan.input_stage;
+  const size_t input_bytes = static_cast<size_t>(rhs_cols) * depth;
+  const size_t filter_bytes = static_cast<size_t>(lhs_rows) * depth;
   const int64_t t0 = esp_timer_get_time();
   for (int32_t h = 0; h < heads; ++h) {
     const int8_t* filter = lhs_data + static_cast<size_t>(h) * lhs_rows * depth;
     const int8_t* input = rhs_data + static_cast<size_t>(h) * rhs_cols * depth;
     int8_t* out = output_data + static_cast<size_t>(h) * lhs_rows * rhs_cols;
+    if ((reinterpret_cast<uintptr_t>(input) & 7u) != 0) {
+      const int64_t c0 = esp_timer_get_time();
+      memcpy(input_stage, input, input_bytes);
+      bmm_align_us += esp_timer_get_time() - c0;
+      bmm_align_copies += 1;
+      input = reinterpret_cast<const int8_t*>(input_stage);
+    }
+    if ((reinterpret_cast<uintptr_t>(filter) & 7u) != 0) {
+      const int64_t c0 = esp_timer_get_time();
+      memcpy(filter_stage, filter, filter_bytes);
+      bmm_align_us += esp_timer_get_time() - c0;
+      bmm_align_copies += 1;
+      filter = reinterpret_cast<const int8_t*>(filter_stage);
+    }
     esp_nn_set_fc_scratch_buf(scratch, static_cast<size_t>(usable));
     esp_nn_fully_connected_per_ch_s8_batch(
         input, params.input_offset, static_cast<uint16_t>(depth), filter,
@@ -705,7 +795,61 @@ void ReshapeToFlattenBatchDimsIfPossible(RuntimeShape* lhs_shape,
 // RHS <..., C, B> X LHS <..., B, A>
 // where output is a C X A column-oriented, which is equivalent to
 // A X C row-oriented.
+#if defined(ESP_NN_HAS_FC_S8_BATCH) && defined(ESP_NN_HAS_FC_SCRATCH_BUF)
+static void BmmCopyDims(const TfLiteEvalTensor* tensor, int32_t* rank,
+                        int32_t* dims) {
+  const int n = tensor->dims->size;
+  *rank = n;
+  for (int i = 0; i < 5; ++i) {
+    dims[i] = i < n ? tensor->dims->data[i] : 0;
+  }
+}
+
+static void BmmProfPrintDims(const int32_t rank, const int32_t* dims) {
+  const int n = rank < 5 ? rank : 5;
+  for (int i = 0; i < n; ++i) {
+    printf("%s%ld", i == 0 ? "" : "x", static_cast<long>(dims[i]));
+  }
+}
+
+extern "C" void bmm_prof_print(void) {
+  const long long other_us =
+      bmm_eval_us - bmm_rhs_tp_us - bmm_lhs_tp_us - bmm_fc_us;
+  printf(
+      "BMM_PROFILE calls=%d eval_us=%lld rhs_tp_us=%lld lhs_tp_us=%lld "
+      "kernel_us=%lld align_us=%lld align_copies=%d other_us=%lld "
+      "note=reference_transpose\n",
+      bmm_prof_n, bmm_eval_us, bmm_rhs_tp_us, bmm_lhs_tp_us, bmm_fc_us,
+      bmm_align_us, bmm_align_copies, other_us);
+  for (int i = 0; i < bmm_prof_n; ++i) {
+    const BmmProfCall& call = bmm_prof_calls[i];
+    printf(
+        "BMM_CALL i=%d adj_x=%d adj_y=%d rhs_copy=%d lhs_copy=%d "
+        "rhs_bytes=%ld lhs_bytes=%ld rhs_tp_us=%lld lhs_tp_us=%lld "
+        "kernel_us=%lld eval_us=%lld lhs=",
+        i, call.adj_x, call.adj_y, call.rhs_copy, call.lhs_copy,
+        static_cast<long>(call.rhs_bytes), static_cast<long>(call.lhs_bytes),
+        call.rhs_tp_us, call.lhs_tp_us, call.kernel_us, call.eval_us);
+    BmmProfPrintDims(call.lhs_rank, call.lhs_dims);
+    printf(" rhs=");
+    BmmProfPrintDims(call.rhs_rank, call.rhs_dims);
+    printf("\n");
+  }
+}
+#endif
+
 TfLiteStatus BatchMatMulEval(TfLiteContext* context, TfLiteNode* node) {
+#if defined(ESP_NN_HAS_FC_S8_BATCH) && defined(ESP_NN_HAS_FC_SCRATCH_BUF)
+  const int64_t eval_t0 = esp_timer_get_time();
+  const long long kernel_before = bmm_fc_us;
+  const int align_before = bmm_align_copies;
+  long long rhs_tp_us = 0;
+  long long lhs_tp_us = 0;
+  int rhs_copy = 0;
+  int lhs_copy = 0;
+  int32_t rhs_bytes = 0;
+  int32_t lhs_bytes = 0;
+#endif
   EvalOpContext op_context(context, node);
   OpDataBatchMatmul* op_data = op_context.op_data;
   const TfLiteEvalTensor* lhs = op_context.lhs;
@@ -727,12 +871,33 @@ TfLiteStatus BatchMatMulEval(TfLiteContext* context, TfLiteNode* node) {
     // TODO(b/154760341): Constant tensors should already be transposed, but
     // we transpose once if necessary for now.
     if (!(op_data->rhs_is_constant_tensor && op_data->rhs_is_transposed)) {
+#if defined(ESP_NN_HAS_FC_S8_BATCH) && defined(ESP_NN_HAS_FC_SCRATCH_BUF)
+      rhs_bytes = static_cast<int32_t>(NumElements(rhs));
+      const int64_t tp0 = esp_timer_get_time();
+#endif
       TransposeRowsColumns(*rhs, rhs_tensor);
+#if defined(ESP_NN_HAS_FC_S8_BATCH) && defined(ESP_NN_HAS_FC_SCRATCH_BUF)
+      rhs_tp_us = esp_timer_get_time() - tp0;
+      rhs_copy = 1;
+#endif
       op_data->rhs_is_transposed = true;
     }
+#if defined(ESP_NN_HAS_FC_S8_BATCH) && defined(ESP_NN_HAS_FC_SCRATCH_BUF)
+    else {
+      rhs_copy = 2;
+    }
+#endif
   }
   if (adj_x) {
+#if defined(ESP_NN_HAS_FC_S8_BATCH) && defined(ESP_NN_HAS_FC_SCRATCH_BUF)
+    lhs_bytes = static_cast<int32_t>(NumElements(lhs));
+    const int64_t tp0 = esp_timer_get_time();
+#endif
     TransposeRowsColumns(*lhs, lhs_tensor);
+#if defined(ESP_NN_HAS_FC_S8_BATCH) && defined(ESP_NN_HAS_FC_SCRATCH_BUF)
+    lhs_tp_us = esp_timer_get_time() - tp0;
+    lhs_copy = 1;
+#endif
   }
   RuntimeShape rhs_shape =
       adj_y ? orig_rhs_shape : SwapRowColumnDims(orig_rhs_shape);
@@ -741,6 +906,7 @@ TfLiteStatus BatchMatMulEval(TfLiteContext* context, TfLiteNode* node) {
 
   ReshapeToFlattenBatchDimsIfPossible(&lhs_shape, &rhs_shape);
 
+  TfLiteStatus status = kTfLiteOk;
   switch (lhs->type) {
     case kTfLiteFloat32:
       // Note we pass RHS args first, LHS args second. See note above.
@@ -751,19 +917,45 @@ TfLiteStatus BatchMatMulEval(TfLiteContext* context, TfLiteNode* node) {
           tflite::micro::GetTensorData<float>(output));
       break;
     case kTfLiteInt8:
-      return EvalInt8(context, *op_data, lhs_shape, *lhs_tensor, rhs_shape,
-                      *rhs_tensor, tflite::micro::GetTensorShape(output),
-                      output);
+      status = EvalInt8(context, *op_data, lhs_shape, *lhs_tensor, rhs_shape,
+                        *rhs_tensor, tflite::micro::GetTensorShape(output),
+                        output);
+      break;
     case kTfLiteInt16:
-      return EvalInt16(context, *op_data, lhs_shape, *lhs_tensor, rhs_shape,
-                       *rhs_tensor, tflite::micro::GetTensorShape(output),
-                       output);
+      status = EvalInt16(context, *op_data, lhs_shape, *lhs_tensor, rhs_shape,
+                         *rhs_tensor, tflite::micro::GetTensorShape(output),
+                         output);
+      break;
     default:
       MicroPrintf("BATCH_MATMUL doesn't support input type %s",
                   TfLiteTypeGetName(lhs->type));
-      return kTfLiteError;
+      status = kTfLiteError;
+      break;
   }
-  return kTfLiteOk;
+#if defined(ESP_NN_HAS_FC_S8_BATCH) && defined(ESP_NN_HAS_FC_SCRATCH_BUF)
+  const long long eval_us = esp_timer_get_time() - eval_t0;
+  const long long kernel_us = bmm_fc_us - kernel_before;
+  bmm_eval_us += eval_us;
+  bmm_rhs_tp_us += rhs_tp_us;
+  bmm_lhs_tp_us += lhs_tp_us;
+  if (bmm_prof_n < kBmmProfMax) {
+    BmmProfCall* call = &bmm_prof_calls[bmm_prof_n++];
+    BmmCopyDims(lhs, &call->lhs_rank, call->lhs_dims);
+    BmmCopyDims(rhs, &call->rhs_rank, call->rhs_dims);
+    call->adj_x = adj_x ? 1 : 0;
+    call->adj_y = adj_y ? 1 : 0;
+    call->rhs_copy = rhs_copy;
+    call->lhs_copy = lhs_copy;
+    call->rhs_bytes = rhs_bytes;
+    call->lhs_bytes = lhs_bytes;
+    call->rhs_tp_us = rhs_tp_us;
+    call->lhs_tp_us = lhs_tp_us;
+    call->kernel_us = kernel_us;
+    call->eval_us = eval_us;
+    call->align_copies = bmm_align_copies - align_before;
+  }
+#endif
+  return status;
 }
 
 }  // namespace
