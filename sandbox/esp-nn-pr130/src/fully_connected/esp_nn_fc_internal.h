@@ -42,16 +42,21 @@ void esp_nn_conv_scratch_restore_ansi(void *scratch, void *preferred,
 void esp_nn_fc_scratch_clear(void);
 
 /* Per-pixel accumulator term for a nonzero fully connected weight
- * zero-point. P4 only. NULL keeps the weight-zero-point-0 kernel. */
+ * zero-point. P4, S31, and S3. NULL keeps the weight-zero-point-0 kernel.
+ * The pointer is 16-byte aligned, one int32 per input row. */
 #if defined(CONFIG_NN_OPTIMIZED) && \
         (defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32S31))
 void esp_nn_conv_set_row_addend_riscv_pie(const int32_t *row_addend);
 #endif
+#if defined(CONFIG_NN_OPTIMIZED) && defined(CONFIG_IDF_TARGET_ESP32S3)
+void esp_nn_conv_set_row_addend_esp32s3(const int32_t *row_addend);
+#endif
 
 /* Returns 1 when the batch was evaluated as a 1x1 convolution.
- * On P4 a nonzero weight zero-point is applied as a per-row addend and
- * still uses the 1x1 kernel. A shape below the per-chip performance floor,
- * batches above UINT16_MAX, an unaligned input or filter, or a fully
+ * On P4, S31, and S3 a nonzero weight zero-point is applied as a per-row
+ * addend and still uses the 1x1 kernel. A shape below the per-chip
+ * performance floor, batches above UINT16_MAX, an unaligned input or
+ * filter, or a fully
  * connected scratch buffer that is missing or smaller than this 1x1 shape
  * returns 0 and leaves out_data untouched. The convolution scratch pointer
  * is not consulted. */

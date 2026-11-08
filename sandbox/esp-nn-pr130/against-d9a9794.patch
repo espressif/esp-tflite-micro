@@ -1,3 +1,201 @@
+diff --git a/src/convolution/esp_nn_conv_1x1_panel_esp32s3.h b/src/convolution/esp_nn_conv_1x1_panel_esp32s3.h
+index 93cacc6..c815be1 100644
+--- a/src/convolution/esp_nn_conv_1x1_panel_esp32s3.h
++++ b/src/convolution/esp_nn_conv_1x1_panel_esp32s3.h
+@@ -37,7 +37,8 @@ void esp_nn_conv_s8_mult8_1x1_oc_panel(
+         int32_t input_offset, const int8_t *filter_data, const int32_t *bias,
+         int8_t *out_data, uint16_t out_channels, uint16_t out_stride,
+         int32_t out_offset, const int32_t *out_shift, const int32_t *out_mult,
+-        int32_t activation_min, int32_t activation_max, void *scratch);
++        int32_t activation_min, int32_t activation_max, void *scratch,
++        const int32_t *row_addend);
+ 
+ /* Panel work area: transpose + tails (24 * in_channels), the staging buffer
+  * the driver scatters from (16 KB), and alignment slack. */
+diff --git a/src/convolution/esp_nn_conv_esp32s3.c b/src/convolution/esp_nn_conv_esp32s3.c
+index 856b616..78bed42 100644
+--- a/src/convolution/esp_nn_conv_esp32s3.c
++++ b/src/convolution/esp_nn_conv_esp32s3.c
+@@ -109,7 +109,8 @@ extern void esp_nn_conv_s8_1x1(const int8_t *input,
+                                 const int32_t *out_mult,
+                                 const int32_t activation_min,
+                                 const int32_t activation_max,
+-                                void *scratch);
++                                void *scratch,
++                                const int32_t *row_addend);
+ 
+ /* Debug heap checks - opt-in: a full heap walk per conv call is far too
+  * expensive (and too fragile) to ship enabled. */
+@@ -127,6 +128,14 @@ extern void esp_nn_conv_s8_1x1(const int8_t *input,
+ static int16_t *scratch_buffer = NULL;
+ static uint8_t *preferred_scratch_buffer = NULL;
+ static size_t preferred_scratch_size = 0;
++/* Per-row accumulator term for a fully connected weight zero-point.
++ * NULL on every other convolution, including a zero weight zero-point. */
++static const int32_t *fc_row_addend = NULL;
++
++void esp_nn_conv_set_row_addend_esp32s3(const int32_t *row_addend)
++{
++    fc_row_addend = row_addend;
++}
+ 
+ extern void esp_nn_conv_s8_mult8_1x1_esp32s3(
+                 const int8_t *input_data,
+@@ -145,7 +154,8 @@ extern void esp_nn_conv_s8_mult8_1x1_esp32s3(
+                 const int32_t *out_mult,
+                 const int32_t activation_min,
+                 const int32_t activation_max,
+-                void *buffer /* scratch buffer */);
++                void *buffer, /* scratch buffer */
++                const int32_t *row_addend);
+ 
+ extern void esp_nn_conv_s8_filter_aligned_input_padded_esp32s3(
+                 const int8_t *input_data,
+@@ -183,7 +193,8 @@ static void esp_nn_conv_s8_mult8_1x1_batched_tail(
+         const int8_t *filter_data, const int32_t *bias,
+         int8_t *out_data, uint16_t out_channels, int32_t out_offset,
+         const int32_t *out_shift, const int32_t *out_mult,
+-        int32_t activation_min, int32_t activation_max, void *scratch)
++        int32_t activation_min, int32_t activation_max, void *scratch,
++        const int32_t *row_addend)
+ {
+     const int spatial_size = input_wd * input_ht;
+     const int tail = spatial_size & 7;
+@@ -193,7 +204,7 @@ static void esp_nn_conv_s8_mult8_1x1_batched_tail(
+                 input, input_wd, input_ht, in_channels, input_offset,
+                 filter_data, bias, out_data, input_wd, input_ht, out_channels,
+                 out_offset, out_shift, out_mult, activation_min, activation_max,
+-                scratch);
++                scratch, row_addend);
+         return;
+     }
+ 
+@@ -207,18 +218,31 @@ static void esp_nn_conv_s8_mult8_1x1_batched_tail(
+                 input, vector_positions, 1, in_channels, input_offset,
+                 filter_data, bias, out_data, vector_positions, 1, out_channels,
+                 out_offset, out_shift, out_mult, activation_min, activation_max,
+-                work);
++                work, row_addend);
+     }
+ 
+     memcpy(tail_input, input + vector_positions * in_channels,
+            tail * in_channels);
+     memset(tail_input + tail * in_channels, (int8_t)-input_offset,
+            (8 - tail) * in_channels);
++    /* The padded positions are discarded. Their addend is zero so the
++     * assembly load of eight values stays inside this array. */
++    int32_t tail_addend_buf[8] __attribute__((aligned(16)));
++    const int32_t *tail_addend = NULL;
++    if (row_addend != NULL) {
++        for (int i = 0; i < tail; i++) {
++            tail_addend_buf[i] = row_addend[vector_positions + i];
++        }
++        for (int i = tail; i < 8; i++) {
++            tail_addend_buf[i] = 0;
++        }
++        tail_addend = tail_addend_buf;
++    }
+     esp_nn_conv_s8_mult8_1x1_esp32s3(
+             tail_input, 8, 1, in_channels, input_offset,
+             filter_data, bias, tail_output, 8, 1, out_channels,
+             out_offset, out_shift, out_mult, activation_min, activation_max,
+-            work);
++            work, tail_addend);
+     memcpy(out_data + vector_positions * out_channels, tail_output,
+            tail * out_channels);
+ }
+@@ -239,7 +263,8 @@ void esp_nn_conv_s8_mult8_1x1_oc_panel(
+         int32_t input_offset, const int8_t *filter_data, const int32_t *bias,
+         int8_t *out_data, uint16_t out_channels, uint16_t out_stride,
+         int32_t out_offset, const int32_t *out_shift, const int32_t *out_mult,
+-        int32_t activation_min, int32_t activation_max, void *scratch)
++        int32_t activation_min, int32_t activation_max, void *scratch,
++        const int32_t *row_addend)
+ {
+     int oc_tile = ESP_NN_S3_PANEL_BYTES / in_channels;
+     oc_tile &= ~7;
+@@ -270,7 +295,8 @@ void esp_nn_conv_s8_mult8_1x1_oc_panel(
+         esp_nn_conv_s8_mult8_1x1_batched_tail(
+                 input, spatial_size, 1, in_channels, input_offset,
+                 filter_data, bias, out_data, out_channels, out_offset,
+-                out_shift, out_mult, activation_min, activation_max, work);
++                out_shift, out_mult, activation_min, activation_max, work,
++                row_addend);
+         return;
+     }
+ 
+@@ -291,7 +317,8 @@ void esp_nn_conv_s8_mult8_1x1_oc_panel(
+                     input_offset, filter_data + oc_base * in_channels,
+                     bias ? bias + oc_base : NULL, staging, oc_n,
+                     out_offset, out_shift + oc_base, out_mult + oc_base,
+-                    activation_min, activation_max, work);
++                    activation_min, activation_max, work,
++                    row_addend == NULL ? NULL : row_addend + pos0);
+             const int8_t *src = staging;
+             int8_t *dst = out_data + pos0 * out_stride + oc_base;
+             for (int p = 0; p < pos_n; p++) {
+@@ -321,6 +348,7 @@ typedef struct {
+     int32_t activation_max;
+     uint8_t *copy_scratch;
+     size_t copy_scratch_size;
++    const int32_t *row_addend;
+ } conv_1x1_panel_mt_job_t;
+ 
+ static void conv_1x1_panel_mt_worker(void *p)
+@@ -330,7 +358,8 @@ static void conv_1x1_panel_mt_worker(void *p)
+             j->input, j->spatial_size, j->in_channels, j->input_offset,
+             j->filter_data, j->bias, j->out_data, j->out_channels,
+             j->out_stride, j->out_offset, j->out_shift, j->out_mult,
+-            j->activation_min, j->activation_max, j->copy_scratch);
++            j->activation_min, j->activation_max, j->copy_scratch,
++            j->row_addend);
+ }
+ #endif /* ESP_NN_DUAL_CORE_SUPPORTED */
+ 
+@@ -734,6 +763,7 @@ void esp_nn_conv_s8_esp32s3(const data_dims_t *input_dims,
+                             .out_mult = out_mult, .activation_min = activation_min,
+                             .activation_max = activation_max,
+                             .copy_scratch = wscr, .copy_scratch_size = (size_t)wneed,
++                            .row_addend = fc_row_addend,
+                         };
+                         if (esp_nn_dual_core_run(conv_1x1_panel_mt_worker, &job)) {
+                             esp_nn_conv_s8_mult8_1x1_oc_panel(
+@@ -742,7 +772,8 @@ void esp_nn_conv_s8_esp32s3(const data_dims_t *input_dims,
+                                     bias ? bias + oc0 : NULL,
+                                     out_data + oc0, out_channels - oc0, out_channels,
+                                     out_offset, out_shift + oc0, out_mult + oc0,
+-                                    activation_min, activation_max, panel_scratch);
++                                    activation_min, activation_max, panel_scratch,
++                                    fc_row_addend);
+                             esp_nn_dual_core_wait();
+                             return;
+                         }
+@@ -754,7 +785,8 @@ void esp_nn_conv_s8_esp32s3(const data_dims_t *input_dims,
+                         input, spatial_size, channels, input_offset,
+                         filter_data, bias, out_data, out_channels,
+                         out_channels, out_offset, out_shift, out_mult,
+-                        activation_min, activation_max, panel_scratch);
++                        activation_min, activation_max, panel_scratch,
++                        fc_row_addend);
+                 return;
+             }
+             void *pointwise_scratch = scratch_buffer;
+@@ -769,13 +801,13 @@ void esp_nn_conv_s8_esp32s3(const data_dims_t *input_dims,
+                     input, input_wd, input_ht, channels, input_offset,
+                     filter_data, bias, out_data, out_channels, out_offset,
+                     out_shift, out_mult, activation_min, activation_max,
+-                    pointwise_scratch);
++                    pointwise_scratch, fc_row_addend);
+         } else {
+             /* Fallback: handles any alignment + any channel count */
+             esp_nn_conv_s8_1x1(input, input_wd, input_ht, channels, input_offset,
+                                filter_data, bias, out_data, out_channels, out_offset,
+                                out_shift, out_mult, activation_min, activation_max,
+-                               scratch_buffer);
++                               scratch_buffer, fc_row_addend);
+         }
+         return;
+     }
 diff --git a/src/convolution/esp_nn_conv_riscv_pie.c b/src/convolution/esp_nn_conv_riscv_pie.c
 index 3751311..b8b3a78 100644
 --- a/src/convolution/esp_nn_conv_riscv_pie.c
@@ -252,33 +450,132 @@ index 3751311..b8b3a78 100644
      } else if (pad_wd == 0 && pad_ht == 0 &&
                 (int32_t)filter_wd * filter_ht * input_dims->channels >= 128 &&
                 (int32_t)filter_wd * filter_ht * input_dims->channels
+diff --git a/src/convolution/esp_nn_conv_s8_1x1_esp32s3.c b/src/convolution/esp_nn_conv_s8_1x1_esp32s3.c
+index faa1784..54c5113 100644
+--- a/src/convolution/esp_nn_conv_s8_1x1_esp32s3.c
++++ b/src/convolution/esp_nn_conv_s8_1x1_esp32s3.c
+@@ -167,7 +167,8 @@ void esp_nn_conv_s8_1x1(const int8_t *input,
+                          const int32_t *out_mult,
+                          const int32_t activation_min,
+                          const int32_t activation_max,
+-                         void *scratch)
++                         void *scratch,
++                         const int32_t *row_addend)
+ {
+     const int size = input_wd * input_ht;
+     const int ch8 = in_channels / 8;
+@@ -250,6 +251,9 @@ void esp_nn_conv_s8_1x1(const int8_t *input,
+             for (int p = 0; p < 8; p++) {
+                 int32_t acc = qacc[p];
+                 if (bias) acc += bias[oc];
++                if (row_addend != NULL) {
++                    acc += row_addend[pos + p];
++                }
+                 acc = esp_nn_multiply_by_quantized_mult(acc, out_mult[oc], out_shift[oc]);
+                 acc += out_offset;
+                 acc = max(acc, activation_min);
+@@ -275,6 +279,9 @@ void esp_nn_conv_s8_1x1(const int8_t *input,
+                 acc += ((int32_t)in_ptr[c] + input_offset) * (int32_t)filt[c];
+             }
+             if (bias) acc += bias[oc];
++            if (row_addend != NULL) {
++                acc += row_addend[pos];
++            }
+             acc = esp_nn_multiply_by_quantized_mult(acc, out_mult[oc], out_shift[oc]);
+             acc += out_offset;
+             acc = max(acc, activation_min);
+diff --git a/src/convolution/esp_nn_conv_s8_3x3_opt_esp32s3.c b/src/convolution/esp_nn_conv_s8_3x3_opt_esp32s3.c
+index 40ba3a2..cd1e0ea 100644
+--- a/src/convolution/esp_nn_conv_s8_3x3_opt_esp32s3.c
++++ b/src/convolution/esp_nn_conv_s8_3x3_opt_esp32s3.c
+@@ -160,7 +160,7 @@ static void esp_nn_3x3_staged_range(
+                 filter_data, bias, out_data + (int32_t)pos0 * out_channels,
+                 (uint16_t)out_channels, (uint16_t)out_channels, out_offset,
+                 out_shift, out_mult, activation_min, activation_max,
+-                panel_scratch);
++                panel_scratch, NULL);
+     }
+ }
+ 
+diff --git a/src/convolution/esp_nn_conv_s8_mult8_1x1_esp32s3.S b/src/convolution/esp_nn_conv_s8_mult8_1x1_esp32s3.S
+index 09db3df..6342d86 100644
+--- a/src/convolution/esp_nn_conv_s8_mult8_1x1_esp32s3.S
++++ b/src/convolution/esp_nn_conv_s8_mult8_1x1_esp32s3.S
+@@ -66,6 +66,7 @@ esp_nn_conv_s8_mult8_1x1_esp32s3:  # 0xdbc
+  // int32_t activation_min  // 192
+  // int32_t activation_max  // 196
+  // void *buffer // tmp buf // 200
++ // const int32_t *row_addend // 204, NULL or 16-byte aligned
+ 
+     entry   a1,160                      #
+     s32i    a5,a1,44                    # [0]  gra_spill_temp_166, in_channels
+@@ -238,6 +239,18 @@ esp_nn_conv_s8_mult8_1x1_esp32s3:  # 0xdbc
+     ee.vadds.s32    q4,q4,q6            # [5]
+ .no_bias:   # 0x102e
+ 
++    # Same eight row terms for every output channel. q0 is positions 0..3
++    # and q4 is positions 4..7, both still pre-requantize.
++    l32i    a11,a1,204
++    beqz    a11,.no_row_addend
++    l32i    a10,a1,40                   # i_out, a multiple of 8
++    addx4   a11,a10,a11
++    ee.vld.128.ip   q6,a11,16           # row_addend[0..3]
++    ee.vld.128.ip   q5,a11,16           # row_addend[4..7]
++    ee.vadds.s32    q0,q0,q6
++    ee.vadds.s32    q4,q4,q5
++.no_row_addend:
++
+     l32i.n  a11,a6,0                    # [1]  id:696
+     l32i.n  a10,a2,0                    # [3]  id:695
+     .global esp_nn_multiply_by_quantized_mult_asm_esp32s3
+@@ -430,6 +443,13 @@ esp_nn_conv_s8_mult8_1x1_esp32s3:  # 0xdbc
+     add             a14,a14,a9
+ 
+ # a14 contains conv_out
++    l32i    a10,a1,204
++    beqz    a10,.leftover_no_row_addend
++    l32i    a12,a1,40                   # i_out
++    addx4   a10,a12,a10
++    l32i    a10,a10,0
++    add     a14,a14,a10
++.leftover_no_row_addend:
+     l32i    a9,a1,160                   # [43]  gra_spill_temp_170, bias ptr
+     l32i.n  a6,a15,0                    # [44]  id:730, shift
+     beqz.n  a9,.leftover_multiply_by_quant_mult             # [45]
 diff --git a/src/fully_connected/esp_nn_fc_internal.h b/src/fully_connected/esp_nn_fc_internal.h
-index 91394ff..723b168 100644
+index 91394ff..ea29bd2 100644
 --- a/src/fully_connected/esp_nn_fc_internal.h
 +++ b/src/fully_connected/esp_nn_fc_internal.h
-@@ -41,8 +41,16 @@ void esp_nn_conv_scratch_restore_ansi(void *scratch, void *preferred,
+@@ -41,9 +41,22 @@ void esp_nn_conv_scratch_restore_ansi(void *scratch, void *preferred,
   * before it returns. */
  void esp_nn_fc_scratch_clear(void);
  
 +/* Per-pixel accumulator term for a nonzero fully connected weight
-+ * zero-point. P4 only. NULL keeps the weight-zero-point-0 kernel. */
++ * zero-point. P4, S31, and S3. NULL keeps the weight-zero-point-0 kernel.
++ * The pointer is 16-byte aligned, one int32 per input row. */
 +#if defined(CONFIG_NN_OPTIMIZED) && \
 +        (defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32S31))
 +void esp_nn_conv_set_row_addend_riscv_pie(const int32_t *row_addend);
 +#endif
++#if defined(CONFIG_NN_OPTIMIZED) && defined(CONFIG_IDF_TARGET_ESP32S3)
++void esp_nn_conv_set_row_addend_esp32s3(const int32_t *row_addend);
++#endif
 +
  /* Returns 1 when the batch was evaluated as a 1x1 convolution.
 - * A nonzero weight zero-point, a shape below the per-chip performance floor,
-+ * On P4 a nonzero weight zero-point is applied as a per-row addend and
-+ * still uses the 1x1 kernel. A shape below the per-chip performance floor,
-  * batches above UINT16_MAX, an unaligned input or filter, or a fully
+- * batches above UINT16_MAX, an unaligned input or filter, or a fully
++ * On P4, S31, and S3 a nonzero weight zero-point is applied as a per-row
++ * addend and still uses the 1x1 kernel. A shape below the per-chip
++ * performance floor, batches above UINT16_MAX, an unaligned input or
++ * filter, or a fully
   * connected scratch buffer that is missing or smaller than this 1x1 shape
   * returns 0 and leaves out_data untouched. The convolution scratch pointer
+  * is not consulted. */
 diff --git a/src/fully_connected/esp_nn_fully_connected_ansi.c b/src/fully_connected/esp_nn_fully_connected_ansi.c
-index c5106dc..3aae8e6 100644
+index c5106dc..9d0cf8b 100644
 --- a/src/fully_connected/esp_nn_fully_connected_ansi.c
 +++ b/src/fully_connected/esp_nn_fully_connected_ansi.c
-@@ -246,12 +246,19 @@ int esp_nn_fc_per_ch_s8_batch_via_conv(const int8_t *input_data,
+@@ -246,12 +246,20 @@ int esp_nn_fc_per_ch_s8_batch_via_conv(const int8_t *input_data,
                                      const int32_t batches)
  {
      if (batches > UINT16_MAX ||
@@ -289,9 +586,10 @@ index c5106dc..3aae8e6 100644
          return 0;
      }
 +#if !defined(CONFIG_NN_OPTIMIZED) || \
-+        !(defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32S31))
-+    /* The 1x1 kernel has no weight-zero-point term except on P4, where the
-+     * missing per-row product is added before requantize. */
++        !(defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32S31) || \
++          defined(CONFIG_IDF_TARGET_ESP32S3))
++    /* The 1x1 kernel has no weight-zero-point term except on P4, S31, and
++     * S3, where the missing per-row product is added before requantize. */
 +    if (filter_offset != 0) {
 +        return 0;
 +    }
@@ -299,7 +597,7 @@ index c5106dc..3aae8e6 100644
  
      const data_dims_t input_dims = {
          .width = 1, .height = batches, .channels = row_len,
-@@ -272,9 +279,38 @@ int esp_nn_fc_per_ch_s8_batch_via_conv(const int8_t *input_data,
+@@ -272,9 +280,40 @@ int esp_nn_fc_per_ch_s8_batch_via_conv(const int8_t *input_data,
      };
      const int scratch_need = esp_nn_get_conv_scratch_size(
              &input_dims, &filter_dims, &output_dims, &conv_params);
@@ -331,6 +629,8 @@ index c5106dc..3aae8e6 100644
 +#if defined(CONFIG_NN_OPTIMIZED) && \
 +        (defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32S31))
 +        esp_nn_conv_set_row_addend_riscv_pie(addend);
++#elif defined(CONFIG_NN_OPTIMIZED) && defined(CONFIG_IDF_TARGET_ESP32S3)
++        esp_nn_conv_set_row_addend_esp32s3(addend);
 +#else
 +        (void) addend;
 +        return 0;
@@ -339,14 +639,70 @@ index c5106dc..3aae8e6 100644
      quant_data_t quant = {
          .shift = (int32_t *) out_shift,
          .mult = (int32_t *) out_mult,
-@@ -288,6 +324,10 @@ int esp_nn_fc_per_ch_s8_batch_via_conv(const int8_t *input_data,
+@@ -288,6 +327,12 @@ int esp_nn_fc_per_ch_s8_batch_via_conv(const int8_t *input_data,
                     &output_dims, out_data, &conv_params, &quant);
      esp_nn_conv_scratch_restore(saved_scratch, saved_preferred,
                                  saved_preferred_size);
 +#if defined(CONFIG_NN_OPTIMIZED) && \
 +        (defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32S31))
 +    esp_nn_conv_set_row_addend_riscv_pie(NULL);
++#elif defined(CONFIG_NN_OPTIMIZED) && defined(CONFIG_IDF_TARGET_ESP32S3)
++    esp_nn_conv_set_row_addend_esp32s3(NULL);
 +#endif
      return 1;
  }
  
+diff --git a/src/fully_connected/esp_nn_fully_connected_esp32s3.c b/src/fully_connected/esp_nn_fully_connected_esp32s3.c
+index affe29e..cae76c5 100644
+--- a/src/fully_connected/esp_nn_fully_connected_esp32s3.c
++++ b/src/fully_connected/esp_nn_fully_connected_esp32s3.c
+@@ -271,10 +271,11 @@ void esp_nn_fully_connected_per_ch_s8_batch_esp32s3(const int8_t *input_data,
+                                        const int32_t activation_max,
+                                        const int32_t batches)
+ {
+-    /* Weight zero-point 0 on a shape the per-chip gate accepts is the 1x1
+-     * convolution when a fully connected scratch buffer was registered.
+-     * Anything else stays in this kernel. The registration is cleared on
+-     * every return. */
++    /* A shape the per-chip gate accepts is the 1x1 convolution when a fully
++     * connected scratch buffer was registered. A nonzero weight zero-point
++     * stays on that path: the missing per-row term is added before
++     * requantize. Anything else stays in this kernel. The registration is
++     * cleared on every return. */
+     if (esp_nn_fc_per_ch_s8_batch_via_conv(input_data, input_offset, row_len,
+                                            filter_data, filter_offset, bias,
+                                            out_data, out_channels, out_offset,
+diff --git a/tests/src/fully_connected_test.c b/tests/src/fully_connected_test.c
+index 25c365c..3afd30a 100644
+--- a/tests/src/fully_connected_test.c
++++ b/tests/src/fully_connected_test.c
+@@ -920,6 +920,8 @@ extern int esp_nn_fc_per_ch_s8_batch_via_conv(
+         const int32_t activation_max, const int32_t batches);
+ 
+ /* A weight zero-point of 0 is the same product as a 1x1 convolution.
++ * A nonzero weight zero-point stays on that path on P4, S31, and S3 when
++ * the registered scratch also holds the per-row term.
+  * expect_s3 is that path with one core, expect_s3_dual is that path after
+  * esp_nn_dual_core_enable(), and expect_p4 and expect_other are the other
+  * two targets. Optimized ESP32-P4 and ESP32-S31 both use expect_p4.
+@@ -966,7 +968,7 @@ void esp_nn_fully_connected_per_ch_s8_batch_1x1_test(void)
+         { "m4_k128_n200",       4, 128, 200, 128, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1 },
+         { "m64_k128_n256",     64, 128, 256, 128, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1 },
+         { "m48_k160_n32",      48, 160,  32,   5, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1 },
+-        { "filt7_m16_k64_n64", 16,  64,  64, 128, 7, 0, 0, 1, 1, 0, 0, 0, 0, 0 },
++        { "filt7_m16_k64_n64", 16,  64,  64, 128, 7, 0, 0, 1, 1, 0, 1, 1, 1, 0 },
+         { "misalign_m16_k64_n64", 16, 64, 64, 128, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0 },
+         { "noscratch_m16_k64_n64", 16, 64, 64, 128, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0 },
+         { "tiny_m2_k32_n32",    2,  32,  32, 128, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0 },
+@@ -1082,6 +1084,11 @@ void esp_nn_fully_connected_per_ch_s8_batch_1x1_test(void)
+             if (scratch_bytes < 0) {
+                 scratch_bytes = 0;
+             }
++            /* The per-row term sits after the convolution workspace. */
++            if (cfg[c].filt_off != 0 && scratch_bytes > 0) {
++                const int addend_at = (scratch_bytes + 15) & ~15;
++                scratch_bytes = addend_at + B * (int) sizeof(int32_t);
++            }
+             if (cfg[c].scratch_mode == 2 && scratch_bytes <= 0) {
+                 /* ANSI and the generic targets report no workspace, so there
+                  * is no short buffer to check. A nonzero size still runs. */

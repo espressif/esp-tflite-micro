@@ -1,5 +1,5 @@
-These three esp-nn files are the kernel used for the attention-matmul numbers in this draft. They are not part of espressif/esp-nn pull 46.
+These esp-nn files are the kernel used for the attention-matmul numbers in this draft. They are not part of espressif/esp-nn pull 46.
 
-On top of commit d9a9794 they add a P4 per-row addend so a nonzero fully connected weight zero-point can stay on the 1x1 path, and a scalar tail for the 768-wide DeiT-Tiny feed-forward remainder.
+On top of commit d9a9794 they add a per-row addend so a nonzero fully connected weight zero-point can stay on the 1x1 path. P4 and S31 use the PIE kernel. S3 uses its assembly 1x1 kernel when the contraction is a multiple of 8 and the pointers are 8-byte aligned, and its C 1x1 kernel otherwise. The PIE file also keeps a scalar tail for the 768-wide DeiT-Tiny feed-forward remainder.
 
 against-d9a9794.patch is that diff. The src/ tree is the modified copies.

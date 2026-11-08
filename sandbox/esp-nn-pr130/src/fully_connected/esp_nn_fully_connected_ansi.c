@@ -252,9 +252,10 @@ int esp_nn_fc_per_ch_s8_batch_via_conv(const int8_t *input_data,
         return 0;
     }
 #if !defined(CONFIG_NN_OPTIMIZED) || \
-        !(defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32S31))
-    /* The 1x1 kernel has no weight-zero-point term except on P4, where the
-     * missing per-row product is added before requantize. */
+        !(defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32S31) || \
+          defined(CONFIG_IDF_TARGET_ESP32S3))
+    /* The 1x1 kernel has no weight-zero-point term except on P4, S31, and
+     * S3, where the missing per-row product is added before requantize. */
     if (filter_offset != 0) {
         return 0;
     }
@@ -306,6 +307,8 @@ int esp_nn_fc_per_ch_s8_batch_via_conv(const int8_t *input_data,
 #if defined(CONFIG_NN_OPTIMIZED) && \
         (defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32S31))
         esp_nn_conv_set_row_addend_riscv_pie(addend);
+#elif defined(CONFIG_NN_OPTIMIZED) && defined(CONFIG_IDF_TARGET_ESP32S3)
+        esp_nn_conv_set_row_addend_esp32s3(addend);
 #else
         (void) addend;
         return 0;
@@ -327,6 +330,8 @@ int esp_nn_fc_per_ch_s8_batch_via_conv(const int8_t *input_data,
 #if defined(CONFIG_NN_OPTIMIZED) && \
         (defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32S31))
     esp_nn_conv_set_row_addend_riscv_pie(NULL);
+#elif defined(CONFIG_NN_OPTIMIZED) && defined(CONFIG_IDF_TARGET_ESP32S3)
+    esp_nn_conv_set_row_addend_esp32s3(NULL);
 #endif
     return 1;
 }
