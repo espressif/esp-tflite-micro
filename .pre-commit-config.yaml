@@ -3,6 +3,9 @@
 ---
 minimum_pre_commit_version: 3.3.0
 default_install_hook_types: [pre-commit,commit-msg]
+# Vendored upstream code that scripts/sync_from_tflite_micro.sh replaces on
+# every sync. Only kernels/esp_nn/ and micro/esp/ under tensorflow/ are ours.
+exclude: '^(third_party/|signal/|tensorflow/(?!lite/micro/(kernels/esp_nn|esp)/))'
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
