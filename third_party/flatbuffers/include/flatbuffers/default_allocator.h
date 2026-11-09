@@ -39,18 +39,24 @@ class DefaultAllocator : public Allocator {
 // This is to avoid having a statically or dynamically allocated default
 // allocator, or having to move it between the classes that may own it.
 inline uint8_t* Allocate(Allocator* allocator, size_t size) {
-  return allocator->allocate(size);
+  return allocator ? allocator->allocate(size)
+                   : DefaultAllocator().allocate(size);
 }
 
 inline void Deallocate(Allocator* allocator, uint8_t* p, size_t size) {
-  allocator->deallocate(p, size);
+  if (allocator)
+    allocator->deallocate(p, size);
+  else
+    DefaultAllocator().deallocate(p, size);
 }
 
 inline uint8_t* ReallocateDownward(Allocator* allocator, uint8_t* old_p,
                                    size_t old_size, size_t new_size,
                                    size_t in_use_back, size_t in_use_front) {
-  return allocator->reallocate_downward(old_p, old_size, new_size, in_use_back,
-                                        in_use_front);
+  return allocator ? allocator->reallocate_downward(old_p, old_size, new_size,
+                                                    in_use_back, in_use_front)
+                   : DefaultAllocator().reallocate_downward(
+                         old_p, old_size, new_size, in_use_back, in_use_front);
 }
 
 }  // namespace flatbuffers
