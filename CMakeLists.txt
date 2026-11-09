@@ -123,7 +123,10 @@ if(CONFIG_ESP_TFLITE_MICRO_USE_ESP_NN AND NOT DEFINED ESP_NN_OFF_PROBE)
     target_compile_options(${COMPONENT_LIB} PRIVATE -DESP_NN)
 endif()
 
-set(common_flags -DTF_LITE_STATIC_MEMORY -DTF_LITE_DISABLE_X86_NEON -O3
+# The flatbuffers settings upstream's Makefiles pass (tflite-micro#3958).
+set(flatbuffers_flags -DFLATBUFFERS_LOCALE_INDEPENDENT=0 -DFLATBUFFERS_PREFER_PRINTF=1)
+
+set(common_flags -DTF_LITE_STATIC_MEMORY -DTF_LITE_DISABLE_X86_NEON ${flatbuffers_flags} -O3
                  -Wstrict-aliasing -Wno-unused-parameter -Wall -Wextra -Wvla
                  -Wsign-compare -Wdouble-promotion -Wswitch -Wunused-function
                  -Wmissing-field-initializers -ffunction-sections -fdata-sections
@@ -139,5 +142,5 @@ target_compile_options(${COMPONENT_LIB} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:
 set_source_files_properties(${tfmicro_kernels_dir}/esp_nn/depthwise_conv.cc
                             PROPERTIES COMPILE_FLAGS -O2)
 
-target_compile_options(${COMPONENT_LIB} INTERFACE -DTF_LITE_STATIC_MEMORY)
+target_compile_options(${COMPONENT_LIB} INTERFACE -DTF_LITE_STATIC_MEMORY ${flatbuffers_flags})
 target_link_libraries(${COMPONENT_LIB} PRIVATE -lm)
