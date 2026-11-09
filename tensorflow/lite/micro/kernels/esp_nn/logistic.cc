@@ -17,14 +17,7 @@ limitations under the License.
 
 #include "tensorflow/lite/micro/kernels/internal/reference/integer_ops/logistic.h"
 
-#if ESP_NN
-#if defined(__has_include)
-#if __has_include(<esp_nn_multicore.h>)
-#include <esp_nn_multicore.h>
-#define ESP_NN_HAVE_MULTICORE 1
-#endif
-#endif
-#endif
+#include "tensorflow/lite/micro/kernels/esp_nn/esp_nn_dual_core.h"
 
 #include "tensorflow/lite/micro/c/builtin_op_data.h"
 #include "tensorflow/lite/micro/c/common.h"
@@ -144,7 +137,7 @@ TfLiteStatus LogisticEval(TfLiteContext* context, TfLiteNode* node) {
             }
           };
 #ifdef ESP_NN_HAVE_MULTICORE
-          if (esp_nn_dual_core_active() && count >= 32768) {
+          if (count >= 32768 && EspNnDualCoreBegin()) {
             const int32_t half = count / 2;
             LutJob wjob = {lut, in_data, out_data, half};
             if (esp_nn_dual_core_run(LutJob::Run, &wjob)) {
@@ -152,8 +145,10 @@ TfLiteStatus LogisticEval(TfLiteContext* context, TfLiteNode* node) {
                              count - half};
               LutJob::Run(&rest);
               esp_nn_dual_core_wait();
+              EspNnDualCoreEnd();
               return kTfLiteOk;
             }
+            EspNnDualCoreEnd();
           }
 #endif  // ESP_NN_HAVE_MULTICORE
           LutJob job = {lut, in_data, out_data, count};

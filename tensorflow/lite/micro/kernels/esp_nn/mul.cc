@@ -28,13 +28,8 @@ limitations under the License.
 
 #if ESP_NN
 #include <esp_nn.h>
-#if defined(__has_include)
-#if __has_include(<esp_nn_multicore.h>)
-#include <esp_nn_multicore.h>
-#define ESP_NN_HAVE_MULTICORE 1
 #endif
-#endif
-#endif
+#include "tensorflow/lite/micro/kernels/esp_nn/esp_nn_dual_core.h"
 
 #include <esp_timer.h>
 
@@ -63,9 +58,9 @@ void MulEvalQuantized(TfLiteContext* context, TfLiteNode* node,
 
   if (need_broadcast) {
     // Channel-vector broadcast (e.g. squeeze-excite gating):
-    // [N,H,W,C] * [1,..,1,C]. Same per-element arithmetic as
-    // BroadcastMul4DSlow (bit-exact), with flat iteration instead of the
-    // N-D descriptor walk, split across both cores when available.
+    // [N,H,W,C] * [1,..,1,C]. esp-nn's channel-broadcast kernel does the
+    // per-element arithmetic of BroadcastMul4DSlow (bit-exact). The rows are
+    // split across both cores when available.
     const RuntimeShape sh1 = tflite::micro::GetTensorShape(input1);
     const RuntimeShape sh2 = tflite::micro::GetTensorShape(input2);
     const RuntimeShape sho = tflite::micro::GetTensorShape(output);
@@ -98,19 +93,10 @@ void MulEvalQuantized(TfLiteContext* context, TfLiteNode* node,
         int32_t big_off, vec_off, out_off, out_mult, out_shift, act_min, act_max;
         static void Run(void* p) {
           const BcastMulJob* j = static_cast<const BcastMulJob*>(p);
-          const int8_t* bp = j->big;
-          int8_t* op = j->out;
-          for (int pos = 0; pos < j->positions; ++pos) {
-            for (int c = 0; c < j->ch; ++c) {
-              const int32_t v = (bp[c] + j->big_off) * (j->vec[c] + j->vec_off);
-              int32_t r = MultiplyByQuantizedMultiplier(v, j->out_mult, j->out_shift) +
-                          j->out_off;
-              r = std::min(std::max(r, j->act_min), j->act_max);
-              op[c] = static_cast<int8_t>(r);
-            }
-            bp += j->ch;
-            op += j->ch;
-          }
+          esp_nn_mul_broadcast_channel_s8(j->big, j->vec, j->big_off, j->vec_off,
+                                          j->out, j->out_off, j->out_mult,
+                                          j->out_shift, j->act_min, j->act_max,
+                                          j->positions, j->ch);
         }
       };
       BcastMulJob job = {big, vec, out_data, positions, ch,
@@ -119,7 +105,7 @@ void MulEvalQuantized(TfLiteContext* context, TfLiteNode* node,
                          op_params.quantized_activation_min,
                          op_params.quantized_activation_max};
 #ifdef ESP_NN_HAVE_MULTICORE
-      if (esp_nn_dual_core_active() && positions * ch >= 8192) {
+      if (positions * ch >= 8192 && EspNnDualCoreBegin()) {
         const int p0 = positions / 2;
         BcastMulJob wjob = job;
         wjob.positions = p0;
@@ -130,8 +116,10 @@ void MulEvalQuantized(TfLiteContext* context, TfLiteNode* node,
           rest.positions = positions - p0;
           BcastMulJob::Run(&rest);
           esp_nn_dual_core_wait();
+          EspNnDualCoreEnd();
           return;
         }
+        EspNnDualCoreEnd();
       }
 #endif  // ESP_NN_HAVE_MULTICORE
       BcastMulJob::Run(&job);
